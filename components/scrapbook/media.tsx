@@ -40,6 +40,19 @@ export function MediaImage({
   const label = alt ?? media.alt ?? "Scrapbook memory";
 
   if (isCloudinaryAsset(media)) {
+    if (!process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME) {
+      return (
+        <Image
+          src={media.src}
+          alt={label}
+          fill
+          sizes={sizes}
+          priority={priority}
+          className={cn("object-cover", className)}
+        />
+      );
+    }
+
     return (
       <CldImage
         src={media.publicId as string}

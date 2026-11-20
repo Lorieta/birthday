@@ -1,0 +1,410 @@
+[
+  {
+    "name": "couple-hug",
+    "file": "couple-hug.webp",
+    "width": 343,
+    "height": 269,
+    "source": {
+      "left": 0,
+      "top": 2,
+      "right": 350,
+      "bottom": 282
+    }
+  },
+  {
+    "name": "couple-kiss",
+    "file": "couple-kiss.webp",
+    "width": 346,
+    "height": 275,
+    "source": {
+      "left": 302,
+      "top": 0,
+      "right": 660,
+      "bottom": 288
+    }
+  },
+  {
+    "name": "couple-peace",
+    "file": "couple-peace.webp",
+    "width": 355,
+    "height": 279,
+    "source": {
+      "left": 626,
+      "top": 0,
+      "right": 992,
+      "bottom": 288
+    }
+  },
+  {
+    "name": "strawberry",
+    "file": "strawberry.webp",
+    "width": 107,
+    "height": 113,
+    "source": {
+      "left": 918,
+      "top": 12,
+      "right": 1046,
+      "bottom": 160
+    }
+  },
+  {
+    "name": "matcha",
+    "file": "matcha.webp",
+    "width": 144,
+    "height": 222,
+    "source": {
+      "left": 1026,
+      "top": 0,
+      "right": 1182,
+      "bottom": 230
+    }
+  },
+  {
+    "name": "bow-large",
+    "file": "bow-large.webp",
+    "width": 162,
+    "height": 178,
+    "source": {
+      "left": 1170,
+      "top": 0,
+      "right": 1338,
+      "bottom": 182
+    }
+  },
+  {
+    "name": "cat-hang",
+    "file": "cat-hang.webp",
+    "width": 232,
+    "height": 180,
+    "source": {
+      "left": 1320,
+      "top": 66,
+      "right": 1536,
+      "bottom": 230
+    }
+  },
+  {
+    "name": "flower",
+    "file": "flower.webp",
+    "width": 74,
+    "height": 73,
+    "source": {
+      "left": 1156,
+      "top": 124,
+      "right": 1242,
+      "bottom": 210
+    }
+  },
+  {
+    "name": "sparkle",
+    "file": "sparkle.webp",
+    "width": 65,
+    "height": 69,
+    "source": {
+      "left": 1134,
+      "top": 180,
+      "right": 1212,
+      "bottom": 262
+    }
+  },
+  {
+    "name": "girl-shy",
+    "file": "girl-shy.webp",
+    "width": 281,
+    "height": 252,
+    "source": {
+      "left": 0,
+      "top": 258,
+      "right": 310,
+      "bottom": 534
+    }
+  },
+  {
+    "name": "boy-shy",
+    "file": "boy-shy.webp",
+    "width": 261,
+    "height": 254,
+    "source": {
+      "left": 290,
+      "top": 258,
+      "right": 546,
+      "bottom": 532
+    }
+  },
+  {
+    "name": "couple-drinks",
+    "file": "couple-drinks.webp",
+    "width": 414,
+    "height": 280,
+    "source": {
+      "left": 550,
+      "top": 260,
+      "right": 950,
+      "bottom": 548
+    }
+  },
+  {
+    "name": "leaf",
+    "file": "leaf.webp",
+    "width": 103,
+    "height": 140,
+    "source": {
+      "left": 832,
+      "top": 538,
+      "right": 926,
+      "bottom": 676
+    }
+  },
+  {
+    "name": "camera",
+    "file": "camera.webp",
+    "width": 146,
+    "height": 123,
+    "source": {
+      "left": 690,
+      "top": 532,
+      "right": 836,
+      "bottom": 660
+    }
+  },
+  {
+    "name": "bow-small",
+    "file": "bow-small.webp",
+    "width": 127,
+    "height": 121,
+    "source": {
+      "left": 574,
+      "top": 520,
+      "right": 700,
+      "bottom": 652
+    }
+  },
+  {
+    "name": "cat-sleep",
+    "file": "cat-sleep.webp",
+    "width": 218,
+    "height": 157,
+    "source": {
+      "left": 370,
+      "top": 498,
+      "right": 572,
+      "bottom": 656
+    }
+  },
+  {
+    "name": "heart",
+    "file": "heart.webp",
+    "width": 97,
+    "height": 99,
+    "source": {
+      "left": 225,
+      "top": 525,
+      "right": 315,
+      "bottom": 646
+    }
+  },
+  {
+    "name": "good-luck",
+    "file": "good-luck.webp",
+    "width": 227,
+    "height": 93,
+    "source": {
+      "left": 4,
+      "top": 508,
+      "right": 262,
+      "bottom": 588
+    }
+  },
+  {
+    "name": "take-care",
+    "file": "take-care.webp",
+    "width": 252,
+    "height": 96,
+    "source": {
+      "left": 4,
+      "top": 572,
+      "right": 255,
+      "bottom": 652
+    }
+  },
+  {
+    "name": "you-got-this",
+    "file": "you-got-this.webp",
+    "width": 247,
+    "height": 84,
+    "source": {
+      "left": 4,
+      "top": 636,
+      "right": 255,
+      "bottom": 714
+    }
+  },
+  {
+    "name": "little-moments",
+    "file": "little-moments.webp",
+    "width": 222,
+    "height": 106,
+    "source": {
+      "left": 350,
+      "top": 632,
+      "right": 570,
+      "bottom": 722
+    }
+  },
+  {
+    "name": "flower-left",
+    "file": "flower-left.webp",
+    "width": 85,
+    "height": 110,
+    "source": {
+      "left": 320,
+      "top": 840,
+      "right": 402,
+      "bottom": 946
+    }
+  },
+  {
+    "name": "flower-center",
+    "file": "flower-center.webp",
+    "width": 81,
+    "height": 117,
+    "source": {
+      "left": 412,
+      "top": 840,
+      "right": 520,
+      "bottom": 950
+    }
+  },
+  {
+    "name": "leaf-bottom",
+    "file": "leaf-bottom.webp",
+    "width": 77,
+    "height": 99,
+    "source": {
+      "left": 588,
+      "top": 830,
+      "right": 678,
+      "bottom": 938
+    }
+  },
+  {
+    "name": "cat-cream",
+    "file": "cat-cream.webp",
+    "width": 181,
+    "height": 131,
+    "source": {
+      "left": 302,
+      "top": 704,
+      "right": 472,
+      "bottom": 836
+    }
+  },
+  {
+    "name": "cat-black",
+    "file": "cat-black.webp",
+    "width": 180,
+    "height": 130,
+    "source": {
+      "left": 462,
+      "top": 704,
+      "right": 626,
+      "bottom": 836
+    }
+  },
+  {
+    "name": "cat-tabby",
+    "file": "cat-tabby.webp",
+    "width": 153,
+    "height": 160,
+    "source": {
+      "left": 608,
+      "top": 698,
+      "right": 768,
+      "bottom": 842
+    }
+  },
+  {
+    "name": "green-heart-strawberry",
+    "file": "green-heart-strawberry.webp",
+    "width": 162,
+    "height": 138,
+    "source": {
+      "left": 736,
+      "top": 706,
+      "right": 888,
+      "bottom": 858
+    }
+  },
+  {
+    "name": "bow-bottom",
+    "file": "bow-bottom.webp",
+    "width": 134,
+    "height": 109,
+    "source": {
+      "left": 728,
+      "top": 840,
+      "right": 846,
+      "bottom": 946
+    }
+  },
+  {
+    "name": "washi-pink-gingham",
+    "file": "washi-pink-gingham.webp",
+    "width": 259,
+    "height": 76,
+    "source": {
+      "left": 6,
+      "top": 700,
+      "right": 260,
+      "bottom": 761
+    }
+  },
+  {
+    "name": "washi-green-gingham",
+    "file": "washi-green-gingham.webp",
+    "width": 262,
+    "height": 78,
+    "source": {
+      "left": 6,
+      "top": 748,
+      "right": 260,
+      "bottom": 810
+    }
+  },
+  {
+    "name": "washi-pink-x",
+    "file": "washi-pink-x.webp",
+    "width": 308,
+    "height": 88,
+    "source": {
+      "left": 2,
+      "top": 784,
+      "right": 316,
+      "bottom": 856
+    }
+  },
+  {
+    "name": "washi-green-hearts",
+    "file": "washi-green-hearts.webp",
+    "width": 312,
+    "height": 92,
+    "source": {
+      "left": 2,
+      "top": 830,
+      "right": 316,
+      "bottom": 906
+    }
+  },
+  {
+    "name": "washi-pink-stripe",
+    "file": "washi-pink-stripe.webp",
+    "width": 313,
+    "height": 92,
+    "source": {
+      "left": 2,
+      "top": 880,
+      "right": 316,
+      "bottom": 956
+    }
+  }
+]

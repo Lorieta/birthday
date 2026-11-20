@@ -1,12 +1,15 @@
 "use client";
 
-import { Moon, Sun } from "lucide-react";
+import { Coffee } from "lucide-react";
 import { useTheme } from "next-themes";
+import { ArtImage } from "@/components/scrapbook/art";
+import { useHydrated } from "@/lib/use-hydrated";
 import { cn } from "@/lib/utils";
 
 export function ThemeToggle({ className }: { className?: string }) {
   const { resolvedTheme, setTheme } = useTheme();
-  const isDark = resolvedTheme === "dark";
+  const mounted = useHydrated();
+  const isDark = mounted && resolvedTheme === "dark";
 
   return (
     <button
@@ -22,17 +25,29 @@ export function ThemeToggle({ className }: { className?: string }) {
         className={cn(
           "absolute left-1 flex size-7 items-center justify-center rounded-full shadow-sm transition-transform duration-300",
           isDark
-            ? "translate-x-[36px] bg-[#d4a574] text-[#1c1411]"
-            : "translate-x-0 bg-[#fdf1d9] text-[#b8843d]",
+            ? "translate-x-[36px] bg-[#f0dcc4] text-[#8b5a3c]"
+            : "translate-x-0 bg-[#e6efd6] text-[#718a4d]",
         )}
       >
-        {isDark ? <Moon className="size-4" /> : <Sun className="size-4" />}
+        {isDark ? (
+          <Coffee className="size-4" />
+        ) : (
+          <ArtImage name="matcha" className="size-5 object-contain" />
+        )}
       </span>
       <span className="pointer-events-none ml-auto flex w-[30px] justify-center text-ink-soft/80">
-        <Moon className={cn("size-3.5 transition-opacity", isDark && "opacity-30")} />
+        <Coffee
+          className={cn("size-3.5 transition-opacity", isDark && "opacity-30")}
+        />
       </span>
       <span className="pointer-events-none absolute left-2.5 flex w-[30px] justify-center text-ink-soft/80">
-        <Sun className={cn("size-3.5 transition-opacity", !isDark && "opacity-30")} />
+        <ArtImage
+          name="matcha"
+          className={cn(
+            "size-5 object-contain transition-opacity",
+            !isDark && "opacity-30",
+          )}
+        />
       </span>
     </button>
   );

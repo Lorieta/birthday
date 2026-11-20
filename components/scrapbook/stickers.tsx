@@ -7,9 +7,12 @@ import {
   FerrisWheel,
   Flower2,
   Gamepad2,
+  GlassWater,
   Heart,
   Ribbon,
   Sparkles,
+  User,
+  Users,
 } from "lucide-react";
 import type { ComponentType } from "react";
 import { ArtSticker } from "@/components/scrapbook/art";
@@ -49,6 +52,48 @@ export const stickerOptions: {
     Icon: Cherry,
     className: "bg-[#ffe0e2] text-[#d2475e]",
     art: "strawberry",
+  },
+  {
+    name: "couple-hug",
+    label: "Couple hug",
+    Icon: Users,
+    className: "bg-[#fbe0e6] text-[#c05470]",
+    art: "couple-hug",
+  },
+  {
+    name: "couple-kiss",
+    label: "Couple kiss",
+    Icon: Heart,
+    className: "bg-[#f9dce3] text-[#bb4e6b]",
+    art: "couple-kiss",
+  },
+  {
+    name: "couple-peace",
+    label: "Couple peace",
+    Icon: Users,
+    className: "bg-[#e6efe0] text-[#6e8455]",
+    art: "couple-peace",
+  },
+  {
+    name: "girl-shy",
+    label: "Shy girl",
+    Icon: User,
+    className: "bg-[#fbe6ea] text-[#c05470]",
+    art: "girl-shy",
+  },
+  {
+    name: "boy-shy",
+    label: "Shy boy",
+    Icon: User,
+    className: "bg-[#e4edf5] text-[#5f7f9b]",
+    art: "boy-shy",
+  },
+  {
+    name: "couple-drinks",
+    label: "Couple drinks",
+    Icon: GlassWater,
+    className: "bg-[#fdeed8] text-[#c27b3a]",
+    art: "couple-drinks",
   },
   {
     name: "gamepad",

@@ -1,5 +1,6 @@
 import type {
   Album,
+  BoardNote,
   MediaAsset,
   Memory,
   ScrapbookState,
@@ -34,12 +35,24 @@ const placeholderCover: MediaAsset = {
   alt: "Scrapbook cover",
 };
 
+const defaultNoteText =
+  "Thanks for the laughs,\nfor the random chats,\nand everything in between.\n\nHere's to more good days\nand more memories worth keeping.";
+
+export const defaultBoardNote: BoardNote = {
+  id: "note-default",
+  title: "A Little Note",
+  text: defaultNoteText,
+  signature: "— JC",
+  color: "blush",
+};
+
 export const defaultScrapbook: ScrapbookState = {
   version: 1,
   since: "2026-11-15",
   cover: placeholderCover,
-  note: "Thanks for the laughs,\nfor the random chats,\nand everything in between.\n\nHere's to more good days\nand more memories worth keeping.",
-  signature: "— JC",
+  note: defaultNoteText,
+  signature: defaultBoardNote.signature,
+  notes: [defaultBoardNote],
   albums: defaultAlbums,
   memories: [],
 };

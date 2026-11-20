@@ -1,15 +1,17 @@
 "use client"
 
 import { useTheme } from "next-themes"
+import { useHydrated } from "@/lib/use-hydrated"
 import { Toaster as Sonner, type ToasterProps } from "sonner"
 import { CircleCheckIcon, InfoIcon, TriangleAlertIcon, OctagonXIcon, Loader2Icon } from "lucide-react"
 
 const Toaster = ({ ...props }: ToasterProps) => {
   const { theme = "system" } = useTheme()
+  const mounted = useHydrated()
 
   return (
     <Sonner
-      theme={theme as ToasterProps["theme"]}
+      theme={(mounted ? theme : "light") as ToasterProps["theme"]}
       className="toaster group"
       icons={{
         success: (

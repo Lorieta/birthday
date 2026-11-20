@@ -10,8 +10,7 @@ import { HeartDoodle } from "@/components/scrapbook/decorative";
 import { Gallery } from "@/components/scrapbook/gallery";
 import { Hero } from "@/components/scrapbook/hero";
 import { MediaViewer } from "@/components/scrapbook/media-viewer";
-import { NoteCard } from "@/components/scrapbook/note-card";
-import { NoteDialog } from "@/components/scrapbook/note-dialog";
+import { NoteBoard } from "@/components/scrapbook/note-card";
 import { Polaroid } from "@/components/scrapbook/polaroid";
 import { Sidebar } from "@/components/scrapbook/sidebar";
 import { Stats } from "@/components/scrapbook/stats";
@@ -22,14 +21,8 @@ import type { Memory, NewMemory } from "@/lib/scrapbook-types";
 const sectionIds = ["home", "timeline", "gallery", "notes", "about"];
 
 export function ScrapbookHome() {
-  const {
-    state,
-    addMemory,
-    updateMemory,
-    deleteMemory,
-    setCover,
-    saveNote,
-  } = useScrapbook();
+  const { state, addMemory, updateMemory, deleteMemory, setCover } =
+    useScrapbook();
 
   const [activeSection, setActiveSection] = useState("home");
   const [addOpen, setAddOpen] = useState(false);
@@ -37,7 +30,6 @@ export function ScrapbookHome() {
   const [viewerOpen, setViewerOpen] = useState(false);
   const [selectedMemory, setSelectedMemory] = useState<Memory | null>(null);
   const [coverOpen, setCoverOpen] = useState(false);
-  const [noteOpen, setNoteOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<Memory | null>(null);
 
@@ -147,7 +139,7 @@ export function ScrapbookHome() {
             id="notes"
             className="grid scroll-mt-8 items-center gap-5 lg:grid-cols-[1.15fr_0.85fr] lg:gap-6"
           >
-            <NoteCard onEdit={() => setNoteOpen(true)} />
+            <NoteBoard />
             <Polaroid media={latestMedia} />
           </section>
 
@@ -185,23 +177,6 @@ export function ScrapbookHome() {
         onUploaded={(media) => {
           setCover(media);
           toast.success("Cover updated");
-        }}
-      />
-
-      <NoteDialog
-        key={`note-${noteOpen ? "open" : "closed"}`}
-        open={noteOpen}
-        onOpenChange={setNoteOpen}
-        note={state.note}
-        signature={state.signature}
-        onSave={(note, signature) => {
-          void saveNote(note, signature).then((saved) => {
-            if (saved) {
-              toast.success("Note saved");
-            } else {
-              toast.error("Note saved on this browser only");
-            }
-          });
         }}
       />
 

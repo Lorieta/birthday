@@ -1,7 +1,21 @@
 import type { NextConfig } from "next";
 
+function cloudNameFromUrl(value: string | undefined) {
+  if (!value) return undefined;
+  try {
+    return new URL(value).hostname || undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+const cloudinaryCloudName = cloudNameFromUrl(process.env.CLOUDINARY_URL);
+
 const nextConfig: NextConfig = {
   /* config options here */
+  env: cloudinaryCloudName
+    ? { NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME: cloudinaryCloudName }
+    : {},
   experimental: {
     agentFeedback: true,
   },

@@ -13,18 +13,28 @@ import {
 import {
   GALLERY_SEED_ALBUMS,
   TIMELINE_ALBUM,
+  defaultBoardNote,
   defaultScrapbook,
   seededGalleryAlbumId,
 } from "@/lib/seed-data";
 import type {
   Album,
+  BoardNote,
   MediaAsset,
   Memory,
+  NewBoardNote,
   NewMemory,
+  NoteColor,
   ScrapbookState,
 } from "@/lib/scrapbook-types";
 
 const STORAGE_KEY = "our-digital-scrapbook:v1";
+const NOTE_COLORS = new Set<NoteColor>([
+  "blush",
+  "sage",
+  "butter",
+  "lavender",
+]);
 const OLD_COVER = "/scrapbook/cover-sunset.svg";
 const OLD_SEED_IDS = new Set([
   "timeline-first-date",
@@ -99,9 +109,9 @@ interface ScrapbookContextValue {
   renameAlbum: (id: string, name: string) => void;
   deleteAlbum: (id: string) => void;
   setCover: (cover: MediaAsset) => void;
-  setNote: (note: string) => void;
-  setSignature: (signature: string) => void;
-  saveNote: (note: string, signature: string) => Promise<boolean>;
+  addBoardNote: (note: NewBoardNote) => Promise<boolean>;
+  updateBoardNote: (id: string, note: NewBoardNote) => Promise<boolean>;
+  deleteBoardNote: (id: string) => Promise<boolean>;
   setSince: (since: string) => void;
   reset: () => void;
 }
@@ -114,6 +124,64 @@ function generateId() {
   }
 
   return `memory-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+}
+
+function normalizeBoardNote(value: unknown): BoardNote | null {
+  if (!value || typeof value !== "object") return null;
+
+  const note = value as Partial<BoardNote>;
+  if (
+    typeof note.id !== "string" ||
+    !note.id ||
+    typeof note.title !== "string" ||
+    typeof note.text !== "string" ||
+    typeof note.signature !== "string" ||
+    !NOTE_COLORS.has(note.color as NoteColor)
+  ) {
+    return null;
+  }
+
+  return {
+    id: note.id,
+    title: note.title,
+    text: note.text,
+    signature: note.signature,
+    color: note.color as NoteColor,
+  };
+}
+
+function normalizeBoardNotes(value: unknown): BoardNote[] | null {
+  if (!Array.isArray(value)) return null;
+
+  const notes: BoardNote[] = [];
+  for (const item of value) {
+    const note = normalizeBoardNote(item);
+    if (!note) return null;
+    notes.push(note);
+  }
+
+  return notes;
+}
+
+function legacyBoardNote(text: string, signature: string): BoardNote {
+  return {
+    ...defaultBoardNote,
+    id: "note-legacy",
+    text,
+    signature,
+  };
+}
+
+function withBoardNotes(
+  state: ScrapbookState,
+  notes: BoardNote[],
+): ScrapbookState {
+  return {
+    ...state,
+    notes,
+    note: notes[0]?.text ?? "",
+    signature: notes[0]?.signature ?? "",
+  };
 }
 
 function normalizeMedia(value: unknown, fallback: MediaAsset): MediaAsset {
@@ -303,7 +371,6 @@ function migrateState(state: ScrapbookState): ScrapbookState {
       : baseCover.alt === OLD_VIDEO_ALT
         ? { ...baseCover, alt: "A scrapbook video" }
         : baseCover;
-  const note = state.note === OLD_NOTE ? defaultScrapbook.note : state.note;
   const availableMemories = state.memories.filter(
     (memory) => !isMissingImportedMedia(memory.media),
   );
@@ -331,9 +398,9 @@ function migrateState(state: ScrapbookState): ScrapbookState {
     migratedMemories.some((memory, index) => memory !== memories[index]);
 
   let next: ScrapbookState =
-    cover === state.cover && note === state.note && !memoriesChanged
+    cover === state.cover && !memoriesChanged
       ? state
-      : { ...state, cover, note, memories: migratedMemories };
+      : { ...state, cover, memories: migratedMemories };
 
   next = migrateAlbumsAndMemoryLinks(next);
   return next;
@@ -352,19 +419,35 @@ function normalizeState(value: unknown): ScrapbookState {
 
   // albums normalized/migrated in migrateState
 
-  return migrateState({
-    version: 1,
-    since:
-      typeof state.since === "string" ? state.since : defaultScrapbook.since,
-    cover: normalizeMedia(state.cover, defaultScrapbook.cover),
-    note: typeof state.note === "string" ? state.note : defaultScrapbook.note,
-    signature:
-      typeof state.signature === "string"
-        ? state.signature
-        : defaultScrapbook.signature,
-    memories: memories.length ? memories : defaultScrapbook.memories,
-    albums: normalizeAlbums(state.albums),
-  });
+  const legacyNote =
+    typeof state.note === "string" ? state.note : defaultScrapbook.note;
+  const legacySignature =
+    typeof state.signature === "string"
+      ? state.signature
+      : defaultScrapbook.signature;
+  const storedNotes = normalizeBoardNotes(state.notes);
+  const notes = storedNotes ?? [legacyBoardNote(legacyNote, legacySignature)];
+  const migratedNotes =
+    notes[0]?.text === OLD_NOTE
+      ? [{ ...notes[0], text: defaultScrapbook.note }, ...notes.slice(1)]
+      : notes;
+
+  return migrateState(
+    withBoardNotes(
+      {
+        version: 1,
+        since:
+          typeof state.since === "string" ? state.since : defaultScrapbook.since,
+        cover: normalizeMedia(state.cover, defaultScrapbook.cover),
+        note: "",
+        signature: "",
+        notes: migratedNotes,
+        memories: memories.length ? memories : defaultScrapbook.memories,
+        albums: normalizeAlbums(state.albums),
+      },
+      migratedNotes,
+    ),
+  );
 }
 
 function readState() {
@@ -440,19 +523,11 @@ export function ScrapbookProvider({ children }: { children: ReactNode }) {
         if (versionAtStart !== noteVersion.current) return;
         if (!data || typeof data !== "object") return;
 
-        const stored = data as { note?: unknown; signature?: unknown };
-        if (
-          typeof stored.note !== "string" ||
-          typeof stored.signature !== "string"
-        ) {
-          return;
-        }
+        const stored = data as { notes?: unknown };
+        const notes = normalizeBoardNotes(stored.notes);
+        if (!notes) return;
 
-        updateState((current) => ({
-          ...current,
-          note: stored.note as string,
-          signature: stored.signature as string,
-        }));
+        updateState((current) => withBoardNotes(current, notes));
       })
       .catch(() => {});
 
@@ -527,29 +602,52 @@ export function ScrapbookProvider({ children }: { children: ReactNode }) {
     updateState((current) => ({ ...current, cover }));
   }, []);
 
-  const setNote = useCallback((note: string) => {
-    updateState((current) => ({ ...current, note }));
-  }, []);
+  const persistBoardNotes = useCallback(
+    async (updater: (notes: BoardNote[]) => BoardNote[]) => {
+      noteVersion.current += 1;
+      let nextNotes: BoardNote[] = [];
 
-  const setSignature = useCallback((signature: string) => {
-    updateState((current) => ({ ...current, signature }));
-  }, []);
-
-  const saveNote = useCallback(async (note: string, signature: string) => {
-    noteVersion.current += 1;
-    updateState((current) => ({ ...current, note, signature }));
-
-    try {
-      const response = await fetch("/api/note", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ note, signature }),
+      updateState((current) => {
+        nextNotes = updater(current.notes);
+        return withBoardNotes(current, nextNotes);
       });
-      return response.ok;
-    } catch {
-      return false;
-    }
-  }, []);
+
+      try {
+        const response = await fetch("/api/note", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ notes: nextNotes }),
+        });
+        return response.ok;
+      } catch {
+        return false;
+      }
+    },
+    [],
+  );
+
+  const addBoardNote = useCallback(
+    (draft: NewBoardNote) =>
+      persistBoardNotes((notes) => [
+        { ...draft, id: `note-${generateId()}` },
+        ...notes,
+      ]),
+    [persistBoardNotes],
+  );
+
+  const updateBoardNote = useCallback(
+    (id: string, draft: NewBoardNote) =>
+      persistBoardNotes((notes) =>
+        notes.map((note) => (note.id === id ? { ...draft, id } : note)),
+      ),
+    [persistBoardNotes],
+  );
+
+  const deleteBoardNote = useCallback(
+    (id: string) =>
+      persistBoardNotes((notes) => notes.filter((note) => note.id !== id)),
+    [persistBoardNotes],
+  );
 
   const setSince = useCallback((since: string) => {
     updateState((current) => ({ ...current, since }));
@@ -569,9 +667,9 @@ export function ScrapbookProvider({ children }: { children: ReactNode }) {
       renameAlbum,
       deleteAlbum,
       setCover,
-      setNote,
-      setSignature,
-      saveNote,
+      addBoardNote,
+      updateBoardNote,
+      deleteBoardNote,
       setSince,
       reset,
     }),
@@ -584,9 +682,9 @@ export function ScrapbookProvider({ children }: { children: ReactNode }) {
       renameAlbum,
       deleteAlbum,
       setCover,
-      setNote,
-      setSignature,
-      saveNote,
+      addBoardNote,
+      updateBoardNote,
+      deleteBoardNote,
       setSince,
       reset,
     ],

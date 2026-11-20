@@ -1,17 +1,11 @@
-import { readNote, saveNote } from "@/lib/note-store";
+import { NOTE_LIMITS, normalizeBoardNotes, readNoteBoard, saveNoteBoard } from "@/lib/note-store";
 
 const NO_STORE = { "Cache-Control": "private, no-store" };
 
 export async function GET() {
-  const stored = await readNote();
+  const notes = await readNoteBoard();
 
-  return Response.json(
-    {
-      note: stored?.note ?? null,
-      signature: stored?.signature ?? null,
-    },
-    { headers: NO_STORE },
-  );
+  return Response.json({ notes }, { headers: NO_STORE });
 }
 
 export async function POST(request: Request) {
@@ -32,26 +26,20 @@ export async function POST(request: Request) {
     );
   }
 
-  const { note, signature } = body as { note?: unknown; signature?: unknown };
-
-  if (
-    typeof note !== "string" ||
-    typeof signature !== "string" ||
-    note.length > 10_000 ||
-    signature.length > 200
-  ) {
+  const notes = normalizeBoardNotes((body as { notes?: unknown }).notes);
+  if (!notes || notes.length > NOTE_LIMITS.count) {
     return Response.json(
-      { error: "Invalid note." },
+      { error: "Invalid notes." },
       { status: 400, headers: NO_STORE },
     );
   }
 
   try {
-    await saveNote({ note, signature });
+    await saveNoteBoard(notes);
     return Response.json({ ok: true }, { headers: NO_STORE });
   } catch {
     return Response.json(
-      { error: "Could not save note." },
+      { error: "Could not save notes." },
       { status: 503, headers: NO_STORE },
     );
   }

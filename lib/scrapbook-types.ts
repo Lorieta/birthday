@@ -6,6 +6,12 @@ export type StickerName =
   | "heart"
   | "matcha"
   | "strawberry"
+  | "couple-hug"
+  | "couple-kiss"
+  | "couple-peace"
+  | "girl-shy"
+  | "boy-shy"
+  | "couple-drinks"
   | "gamepad"
   | "ferris"
   | "cake"
@@ -14,6 +20,8 @@ export type StickerName =
   | "cat"
   | "bow"
   | "sparkle";
+
+export type NoteColor = "blush" | "sage" | "butter" | "lavender";
 
 export interface MediaAsset {
   kind: MediaKind;
@@ -45,14 +53,24 @@ export interface Album {
   createdAt?: string;
 }
 
+export interface BoardNote {
+  id: string;
+  title: string;
+  text: string;
+  signature: string;
+  color: NoteColor;
+}
+
 export interface ScrapbookState {
   version: 1;
   since: string;
   cover: MediaAsset;
   note: string;
   signature: string;
+  notes: BoardNote[];
   memories: Memory[];
   albums: Album[];
 }
 
 export type NewMemory = Omit<Memory, "id">;
+export type NewBoardNote = Omit<BoardNote, "id">;

@@ -26,6 +26,7 @@ import type {
   NewMemory,
   StickerName,
 } from "@/lib/scrapbook-types";
+import { isPersonArt } from "@/lib/sticker-art";
 import { cn } from "@/lib/utils";
 
 function todayISO() {
@@ -209,6 +210,8 @@ export function AddMemoryDialog({
                   const Icon = option.Icon;
                   const selected = sticker === option.name;
 
+                  const person = option.art ? isPersonArt(option.art) : false;
+
                   return (
                     <button
                       key={option.name}
@@ -219,6 +222,7 @@ export function AddMemoryDialog({
                       onClick={() => setSticker(option.name)}
                       className={cn(
                         "flex size-9 items-center justify-center rounded-full ring-2 transition-transform hover:-translate-y-0.5",
+                        person && "size-14",
                         option.className,
                         selected
                           ? "scale-110 ring-rose-deep"
@@ -226,7 +230,10 @@ export function AddMemoryDialog({
                       )}
                     >
                       {option.art ? (
-                        <ArtImage name={option.art} className="size-6" />
+                        <ArtImage
+                          name={option.art}
+                          className={cn("size-6", person && "size-11")}
+                        />
                       ) : (
                         <Icon className="size-4" strokeWidth={2.2} />
                       )}

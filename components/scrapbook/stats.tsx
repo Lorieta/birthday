@@ -1,6 +1,6 @@
 "use client";
 
-import { Album, CalendarDays, Quote } from "lucide-react";
+import { Album, NotebookPen, Quote } from "lucide-react";
 import { HeartDoodle } from "@/components/scrapbook/decorative";
 import { useScrapbook } from "@/components/scrapbook/scrapbook-provider";
 import { cn } from "@/lib/utils";
@@ -54,9 +54,9 @@ export function Stats() {
     <section className="grid grid-cols-2 gap-3 lg:grid-cols-3">
       <StatCard
         tone="sage"
-        icon={<CalendarDays className="size-5" />}
-        value="∞"
-        label="Days Together"
+        icon={<NotebookPen className="size-5" />}
+        value={state.notes.length}
+        label="Notes"
       />
       <StatCard
         tone="blush"
