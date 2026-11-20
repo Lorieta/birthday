@@ -67,33 +67,17 @@ export function CloudinaryUpload({
     return (
       <div
         className={cn(
-          "rounded-2xl border border-dashed border-rose/40 bg-blush-soft/40 p-4 text-left",
+          "flex items-center gap-2 rounded-2xl border border-dashed border-rose/40 bg-blush-soft/40 p-4 text-sm text-ink-soft",
           className,
         )}
       >
-        <div className="flex items-start gap-3">
-          <span className="mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-full bg-rose/15 text-rose-deep">
-            <AlertCircle className="size-4" />
-          </span>
-          <div className="space-y-1.5">
-            <p className="text-sm font-semibold text-ink">
-              Cloudinary needs a little setup
-            </p>
-            <p className="text-xs leading-relaxed text-ink-soft">
-              Add your cloud name, API key, and API secret to .env.local,
-              then restart the dev server.
-            </p>
-            <div className="flex items-center gap-2 pt-1 text-[0.7rem] text-ink-soft">
-              <Settings2 className="size-3.5" />
-              <span>See .env.example for the exact variables.</span>
-            </div>
-          </div>
-        </div>
+        <Loader2 className="size-4 animate-spin" />
+        Preparing uploads…
       </div>
     );
   }
 
-  if (!configured) {
+  if (!configured || !cloudName || !apiKey) {
     return (
       <div
         className={cn(
@@ -145,7 +129,7 @@ export function CloudinaryUpload({
   return (
     <CldUploadWidget
       signatureEndpoint="/api/sign-cloudinary-params"
-      config={{ cloud: { cloudName: cloudName ?? undefined, apiKey: apiKey ?? undefined } }}
+      config={{ cloud: { cloudName, apiKey } }}
       options={{
         sources: ["local", "camera", "url"],
         multiple,

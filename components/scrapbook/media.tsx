@@ -1,8 +1,13 @@
 "use client";
 
 import Image from "next/image";
-import { CldImage } from "next-cloudinary";
-import { getVideoPoster, hasDisplayableMedia, isCloudinaryAsset, isVideo } from "@/lib/media";
+import {
+  getVideoPoster,
+  hasDisplayableMedia,
+  isCloudinaryAsset,
+  isVideo,
+  parseCloudNameFromSrc,
+} from "@/lib/media";
 import type { MediaAsset } from "@/lib/scrapbook-types";
 import { cn } from "@/lib/utils";
 
@@ -39,23 +44,23 @@ export function MediaImage({
 
   const label = alt ?? media.alt ?? "Scrapbook memory";
 
-  if (isCloudinaryAsset(media)) {
-    return (
-      <CldImage
-        src={media.publicId as string}
-        alt={label}
-        fill
-        sizes={sizes}
-        className={cn("object-cover", className)}
-        crop="fill"
-        gravity="auto"
-      />
-    );
+  // Saved delivery URLs work without the Cloudinary browser SDK or build-time config.
+  const cloudName =
+    parseCloudNameFromSrc(media.src) ?? process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME;
+
+  const src = media.src || (
+    isCloudinaryAsset(media) && cloudName
+      ? `https://res.cloudinary.com/${cloudName}/image/upload/${media.publicId}`
+      : undefined
+  );
+
+  if (!src) {
+    return <MediaFallback className={className} />;
   }
 
   return (
     <Image
-      src={media.src}
+      src={src}
       alt={label}
       fill
       sizes={sizes}

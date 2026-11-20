@@ -1,7 +1,7 @@
 import type { MediaAsset } from "@/lib/scrapbook-types";
 
 /** Derive the cloud name from a Cloudinary public URL. */
-function parseCloudNameFromSrc(src: string | undefined): string | undefined {
+export function parseCloudNameFromSrc(src: string | undefined): string | undefined {
   if (!src) return undefined;
   const match = src.match(/^https:\/\/res\.cloudinary\.com\/([^/]+)\//);
   return match ? match[1] : undefined;
