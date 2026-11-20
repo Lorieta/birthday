@@ -2,7 +2,13 @@
 
 import Image from "next/image";
 import { CldImage } from "next-cloudinary";
-import { getVideoPoster, hasDisplayableMedia, isCloudinaryAsset, isVideo } from "@/lib/media";
+import {
+  getVideoPoster,
+  hasDisplayableMedia,
+  isCloudinaryAsset,
+  isVideo,
+  parseCloudNameFromSrc,
+} from "@/lib/media";
 import type { MediaAsset } from "@/lib/scrapbook-types";
 import { cn } from "@/lib/utils";
 
@@ -39,9 +45,15 @@ export function MediaImage({
 
   const label = alt ?? media.alt ?? "Scrapbook memory";
 
-  if (isCloudinaryAsset(media)) {
+  // The cloud name is taken from the asset's own delivery URL so CldImage
+  // doesn't depend on NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME being set at build time.
+  const cloudName =
+    parseCloudNameFromSrc(media.src) ?? process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME;
+
+  if (isCloudinaryAsset(media) && cloudName) {
     return (
       <CldImage
+        config={{ cloud: { cloudName } }}
         src={media.publicId as string}
         alt={label}
         fill
@@ -51,6 +63,10 @@ export function MediaImage({
         gravity="auto"
       />
     );
+  }
+
+  if (!media.src) {
+    return <MediaFallback className={className} />;
   }
 
   return (
