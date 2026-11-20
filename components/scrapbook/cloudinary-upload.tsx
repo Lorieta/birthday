@@ -5,45 +5,9 @@ import { useCloudinaryConfig } from "@/lib/use-cloudinary-config";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
+import { toMediaAsset, type CloudinaryAssetInfo } from "@/lib/cloudinary-asset";
 import type { MediaAsset } from "@/lib/scrapbook-types";
 import { CldUploadWidget, type CloudinaryUploadWidgetResults } from "next-cloudinary";
-
-/* ---------- helper: toMediaAsset ---------- */
-interface CloudinaryUploadInfo {
-  resource_type: string;
-  duration?: number;
-  public_id: string;
-  width: number;
-  height: number;
-  secure_url: string;
-  original_filename?: string;
-}
-
-function toMediaAsset(
-  info: CloudinaryUploadInfo,
-  cloudName: string,
-): MediaAsset {
-  const kind = info.resource_type === "video" ? "video" : "image";
-  const duration =
-    typeof info.duration === "number" && Number.isFinite(info.duration)
-      ? info.duration
-      : undefined;
-
-  return {
-    kind,
-    source: "cloudinary",
-    src: info.secure_url,
-    publicId: info.public_id,
-    width: info.width,
-    height: info.height,
-    duration,
-    poster:
-      kind === "video"
-        ? `https://res.cloudinary.com/${cloudName}/video/upload/so_0,w_1000,c_fill/${info.public_id}.jpg`
-        : undefined,
-    alt: info.original_filename || "Uploaded scrapbook media",
-  };
-}
 
 /* ---------- component ---------- */
 export function CloudinaryUpload({
@@ -133,7 +97,7 @@ export function CloudinaryUpload({
       return;
     }
 
-    const media = toMediaAsset(results.info as CloudinaryUploadInfo, cloudName ?? "");
+    const media = toMediaAsset(results.info as CloudinaryAssetInfo, cloudName ?? "");
 
     onUploaded(media);
     onUploadingChange?.(false);

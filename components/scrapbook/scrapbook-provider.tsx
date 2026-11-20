@@ -10,6 +10,7 @@ import {
   useSyncExternalStore,
   type ReactNode,
 } from "react";
+import { titleFromCloudinaryPublicId } from "@/lib/cloudinary-asset";
 import {
   GALLERY_SEED_ALBUMS,
   TIMELINE_ALBUM,
@@ -182,6 +183,92 @@ function withBoardNotes(
     note: notes[0]?.text ?? "",
     signature: notes[0]?.signature ?? "",
   };
+}
+
+interface SyncedCloudinaryMedia {
+  media: MediaAsset;
+  createdAt?: string;
+}
+
+function normalizeSyncedCloudinaryMedia(
+  value: unknown,
+): SyncedCloudinaryMedia | null {
+  if (!value || typeof value !== "object") return null;
+
+  const item = value as { media?: unknown; createdAt?: unknown };
+  const media = normalizeMedia(item.media, defaultScrapbook.cover);
+  if (media.source !== "cloudinary" || !media.publicId) return null;
+
+  return {
+    media,
+    createdAt: typeof item.createdAt === "string" ? item.createdAt : undefined,
+  };
+}
+
+function dateFromCreatedAt(createdAt: string | undefined) {
+  if (!createdAt) return new Date().toISOString().slice(0, 10);
+  const date = new Date(createdAt);
+  return Number.isNaN(date.getTime())
+    ? new Date().toISOString().slice(0, 10)
+    : date.toISOString().slice(0, 10);
+}
+
+function cloudinaryMemoryId(publicId: string) {
+  const slug = publicId.replace(/[^a-zA-Z0-9_-]+/g, "-").slice(0, 80);
+  return `cloudinary-${slug || "media"}`;
+}
+
+function withCloudinaryDeleted(state: ScrapbookState, publicId: string) {
+  if (!publicId || state.deletedCloudinaryPublicIds.includes(publicId)) {
+    return state;
+  }
+
+  return {
+    ...state,
+    deletedCloudinaryPublicIds: [
+      ...state.deletedCloudinaryPublicIds,
+      publicId,
+    ],
+  };
+}
+
+function mergeCloudinaryMedia(
+  state: ScrapbookState,
+  items: SyncedCloudinaryMedia[],
+): ScrapbookState {
+  const publicIds = new Set(
+    state.memories
+      .map((memory) => memory.media.publicId)
+      .filter((id): id is string => Boolean(id)),
+  );
+  const memoryIds = new Set(state.memories.map((memory) => memory.id));
+  const deleted = new Set(state.deletedCloudinaryPublicIds);
+  const additions: Memory[] = [];
+
+  for (const item of items) {
+    const publicId = item.media.publicId;
+    if (!publicId || deleted.has(publicId) || publicIds.has(publicId)) continue;
+    if (state.cover.publicId === publicId) continue;
+
+    const id = cloudinaryMemoryId(publicId);
+    if (memoryIds.has(id)) continue;
+
+    publicIds.add(publicId);
+    memoryIds.add(id);
+    additions.push({
+      id,
+      title: item.media.alt ?? titleFromCloudinaryPublicId(publicId),
+      date: dateFromCreatedAt(item.createdAt),
+      caption: "",
+      media: item.media,
+      sticker: "heart",
+      section: "gallery",
+      albumId: seededGalleryAlbumId(id),
+    });
+  }
+
+  if (!additions.length) return state;
+  return { ...state, memories: [...additions, ...state.memories] };
 }
 
 function normalizeMedia(value: unknown, fallback: MediaAsset): MediaAsset {
@@ -443,6 +530,13 @@ function normalizeState(value: unknown): ScrapbookState {
         signature: "",
         notes: migratedNotes,
         memories: memories.length ? memories : defaultScrapbook.memories,
+        deletedCloudinaryPublicIds: Array.isArray(
+          state.deletedCloudinaryPublicIds,
+        )
+          ? state.deletedCloudinaryPublicIds.filter(
+              (id): id is string => typeof id === "string",
+            )
+          : [],
         albums: normalizeAlbums(state.albums),
       },
       migratedNotes,
@@ -512,6 +606,7 @@ export function ScrapbookProvider({ children }: { children: ReactNode }) {
     getServerSnapshot,
   );
   const noteVersion = useRef(0);
+  const mediaVersion = useRef(0);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -534,7 +629,38 @@ export function ScrapbookProvider({ children }: { children: ReactNode }) {
     return () => controller.abort();
   }, []);
 
+  useEffect(() => {
+    const controller = new AbortController();
+    const versionAtStart = mediaVersion.current;
+
+    fetch("/api/cloudinary-media", {
+      cache: "no-store",
+      signal: controller.signal,
+    })
+      .then((response) => (response.ok ? response.json() : null))
+      .then((data: unknown) => {
+        if (versionAtStart !== mediaVersion.current) return;
+        if (!data || typeof data !== "object") return;
+
+        const rawMedia = (data as { media?: unknown }).media;
+        if (!Array.isArray(rawMedia)) return;
+
+        const items = rawMedia
+          .map(normalizeSyncedCloudinaryMedia)
+          .filter(
+            (item): item is SyncedCloudinaryMedia => Boolean(item),
+          );
+        if (!items.length) return;
+
+        updateState((current) => mergeCloudinaryMedia(current, items));
+      })
+      .catch(() => {});
+
+    return () => controller.abort();
+  }, []);
+
   const addMemory = useCallback((memory: NewMemory) => {
+    mediaVersion.current += 1;
     const created: Memory = { ...memory, id: generateId() };
 
     updateState((current) => ({
@@ -546,19 +672,43 @@ export function ScrapbookProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const updateMemory = useCallback((id: string, memory: NewMemory) => {
-    updateState((current) => ({
-      ...current,
-      memories: current.memories.map((item) =>
-        item.id === id ? { ...item, ...memory } : item,
-      ),
-    }));
+    mediaVersion.current += 1;
+
+    updateState((current) => {
+      const existing = current.memories.find((item) => item.id === id);
+      const replacedPublicId =
+        existing?.media.source === "cloudinary" &&
+        existing.media.publicId !== memory.media.publicId
+          ? existing.media.publicId
+          : undefined;
+
+      const next = {
+        ...current,
+        memories: current.memories.map((item) =>
+          item.id === id ? { ...item, ...memory } : item,
+        ),
+      };
+
+      return replacedPublicId
+        ? withCloudinaryDeleted(next, replacedPublicId)
+        : next;
+    });
   }, []);
 
   const deleteMemory = useCallback((id: string) => {
-    updateState((current) => ({
-      ...current,
-      memories: current.memories.filter((item) => item.id !== id),
-    }));
+    mediaVersion.current += 1;
+
+    updateState((current) => {
+      const deleted = current.memories.find((item) => item.id === id);
+      const next = {
+        ...current,
+        memories: current.memories.filter((item) => item.id !== id),
+      };
+
+      return deleted?.media.source === "cloudinary" && deleted.media.publicId
+        ? withCloudinaryDeleted(next, deleted.media.publicId)
+        : next;
+    });
   }, []);
 
   const addAlbum = useCallback((name: string) => {
@@ -654,6 +804,8 @@ export function ScrapbookProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const reset = useCallback(() => {
+    noteVersion.current += 1;
+    mediaVersion.current += 1;
     updateState(() => defaultScrapbook);
   }, []);
 

@@ -55,6 +55,7 @@ export const defaultScrapbook: ScrapbookState = {
   notes: [defaultBoardNote],
   albums: defaultAlbums,
   memories: [],
+  deletedCloudinaryPublicIds: [],
 };
 
 export const galleryMemories: Memory[] = [];

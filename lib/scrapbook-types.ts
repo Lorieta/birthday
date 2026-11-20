@@ -69,6 +69,7 @@ export interface ScrapbookState {
   signature: string;
   notes: BoardNote[];
   memories: Memory[];
+  deletedCloudinaryPublicIds: string[];
   albums: Album[];
 }
 
