@@ -28,8 +28,7 @@ export function ScrapbookHome() {
     updateMemory,
     deleteMemory,
     setCover,
-    setNote,
-    setSignature,
+    saveNote,
   } = useScrapbook();
 
   const [activeSection, setActiveSection] = useState("home");
@@ -196,9 +195,13 @@ export function ScrapbookHome() {
         note={state.note}
         signature={state.signature}
         onSave={(note, signature) => {
-          setNote(note);
-          setSignature(signature);
-          toast.success("Note saved");
+          void saveNote(note, signature).then((saved) => {
+            if (saved) {
+              toast.success("Note saved");
+            } else {
+              toast.error("Note saved on this browser only");
+            }
+          });
         }}
       />
 

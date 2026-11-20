@@ -4,7 +4,9 @@ import {
   createContext,
   useCallback,
   useContext,
+  useEffect,
   useMemo,
+  useRef,
   useSyncExternalStore,
   type ReactNode,
 } from "react";
@@ -99,6 +101,7 @@ interface ScrapbookContextValue {
   setCover: (cover: MediaAsset) => void;
   setNote: (note: string) => void;
   setSignature: (signature: string) => void;
+  saveNote: (note: string, signature: string) => Promise<boolean>;
   setSince: (since: string) => void;
   reset: () => void;
 }
@@ -425,6 +428,36 @@ export function ScrapbookProvider({ children }: { children: ReactNode }) {
     getSnapshot,
     getServerSnapshot,
   );
+  const noteVersion = useRef(0);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    const versionAtStart = noteVersion.current;
+
+    fetch("/api/note", { cache: "no-store", signal: controller.signal })
+      .then((response) => (response.ok ? response.json() : null))
+      .then((data: unknown) => {
+        if (versionAtStart !== noteVersion.current) return;
+        if (!data || typeof data !== "object") return;
+
+        const stored = data as { note?: unknown; signature?: unknown };
+        if (
+          typeof stored.note !== "string" ||
+          typeof stored.signature !== "string"
+        ) {
+          return;
+        }
+
+        updateState((current) => ({
+          ...current,
+          note: stored.note as string,
+          signature: stored.signature as string,
+        }));
+      })
+      .catch(() => {});
+
+    return () => controller.abort();
+  }, []);
 
   const addMemory = useCallback((memory: NewMemory) => {
     const created: Memory = { ...memory, id: generateId() };
@@ -502,6 +535,22 @@ export function ScrapbookProvider({ children }: { children: ReactNode }) {
     updateState((current) => ({ ...current, signature }));
   }, []);
 
+  const saveNote = useCallback(async (note: string, signature: string) => {
+    noteVersion.current += 1;
+    updateState((current) => ({ ...current, note, signature }));
+
+    try {
+      const response = await fetch("/api/note", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ note, signature }),
+      });
+      return response.ok;
+    } catch {
+      return false;
+    }
+  }, []);
+
   const setSince = useCallback((since: string) => {
     updateState((current) => ({ ...current, since }));
   }, []);
@@ -522,6 +571,7 @@ export function ScrapbookProvider({ children }: { children: ReactNode }) {
       setCover,
       setNote,
       setSignature,
+      saveNote,
       setSince,
       reset,
     }),
@@ -536,6 +586,7 @@ export function ScrapbookProvider({ children }: { children: ReactNode }) {
       setCover,
       setNote,
       setSignature,
+      saveNote,
       setSince,
       reset,
     ],
