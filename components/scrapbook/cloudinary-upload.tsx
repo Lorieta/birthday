@@ -77,7 +77,7 @@ export function CloudinaryUpload({
     );
   }
 
-  if (!configured) {
+  if (!configured || !cloudName || !apiKey) {
     return (
       <div
         className={cn(
@@ -129,7 +129,7 @@ export function CloudinaryUpload({
   return (
     <CldUploadWidget
       signatureEndpoint="/api/sign-cloudinary-params"
-      config={{ cloud: { cloudName: cloudName ?? undefined, apiKey: apiKey ?? undefined } }}
+      config={{ cloud: { cloudName, apiKey } }}
       options={{
         sources: ["local", "camera", "url"],
         multiple,

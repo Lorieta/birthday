@@ -1,7 +1,6 @@
 "use client";
 
 import Image from "next/image";
-import { CldImage } from "next-cloudinary";
 import {
   getVideoPoster,
   hasDisplayableMedia,
@@ -45,33 +44,23 @@ export function MediaImage({
 
   const label = alt ?? media.alt ?? "Scrapbook memory";
 
-  // The cloud name is taken from the asset's own delivery URL so CldImage
-  // doesn't depend on NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME being set at build time.
+  // Saved delivery URLs work without the Cloudinary browser SDK or build-time config.
   const cloudName =
     parseCloudNameFromSrc(media.src) ?? process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME;
 
-  if (isCloudinaryAsset(media) && cloudName) {
-    return (
-      <CldImage
-        config={{ cloud: { cloudName } }}
-        src={media.publicId as string}
-        alt={label}
-        fill
-        sizes={sizes}
-        className={cn("object-cover", className)}
-        crop="fill"
-        gravity="auto"
-      />
-    );
-  }
+  const src = media.src || (
+    isCloudinaryAsset(media) && cloudName
+      ? `https://res.cloudinary.com/${cloudName}/image/upload/${media.publicId}`
+      : undefined
+  );
 
-  if (!media.src) {
+  if (!src) {
     return <MediaFallback className={className} />;
   }
 
   return (
     <Image
-      src={media.src}
+      src={src}
       alt={label}
       fill
       sizes={sizes}
