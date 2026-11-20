@@ -116,7 +116,7 @@ export function Gallery({
   return (
     <section id="gallery" className="scroll-mt-8 space-y-4">
       <SectionHeading
-        title="Our Gallery"
+        title="Gallery"
         action={
           <div className="flex items-center gap-1.5">
             <Button
@@ -226,7 +226,7 @@ export function Gallery({
         })}
       </div>
 
-      <div className="columns-2 gap-3 md:columns-3 xl:columns-4 [&>*]:mb-3">
+      <div className="columns-2 gap-2 sm:gap-3 md:columns-3 xl:columns-4 [&>*]:mb-2 sm:[&>*]:mb-3">
         {visibleMemories.map((memory, index) => (
           <div
             key={memory.id}
@@ -236,7 +236,7 @@ export function Gallery({
             )}
           >
             {index % 4 === 0 ? (
-              <WashiTape className="-top-2 left-1/2 w-20 -translate-x-1/2 rotate-[-3deg]" />
+              <WashiTape className="-top-2 left-1/2 w-16 -translate-x-1/2 rotate-[-3deg] sm:w-20" />
             ) : null}
 
             <button
@@ -275,7 +275,7 @@ export function Gallery({
                 type="button"
                 onClick={() => onEdit(memory)}
                 aria-label={`Edit ${memory.title}`}
-                className="flex size-7 items-center justify-center rounded-full bg-white/85 text-ink shadow-sm backdrop-blur transition-colors hover:text-rose-deep"
+                className="flex size-8 items-center justify-center rounded-full bg-white/85 text-ink shadow-sm backdrop-blur transition-colors hover:text-rose-deep sm:size-7"
               >
                 <Pencil className="size-3" />
               </button>
@@ -283,7 +283,7 @@ export function Gallery({
                 type="button"
                 onClick={() => onDelete(memory)}
                 aria-label={`Delete ${memory.title}`}
-                className="flex size-7 items-center justify-center rounded-full bg-white/85 text-ink shadow-sm backdrop-blur transition-colors hover:text-destructive"
+                className="flex size-8 items-center justify-center rounded-full bg-white/85 text-ink shadow-sm backdrop-blur transition-colors hover:text-destructive sm:size-7"
               >
                 <Trash2 className="size-3" />
               </button>
@@ -291,7 +291,7 @@ export function Gallery({
 
             <Sticker
               name={memory.sticker}
-              size="sm"
+              size="xs"
               className="absolute -right-1.5 -bottom-1.5 rotate-6"
             />
 

@@ -54,9 +54,9 @@ export function NoteDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg bg-paper-soft">
+      <DialogContent className="max-h-[92vh] w-[calc(100vw-1.5rem)] max-w-lg overflow-y-auto bg-paper-soft p-4 sm:p-6">
         <DialogHeader>
-          <DialogTitle className="font-hand text-3xl text-ink">
+          <DialogTitle className="font-hand text-2xl text-ink sm:text-3xl">
             {note ? "Edit note" : "A little note"}
           </DialogTitle>
           <DialogDescription>
@@ -96,7 +96,7 @@ export function NoteDialog({
               }
               rows={8}
               maxLength={10_000}
-              className="min-h-40 rounded-xl bg-paper font-hand text-xl leading-7"
+              className="min-h-32 rounded-xl bg-paper font-hand text-lg leading-7 sm:min-h-40 sm:text-xl"
             />
           </div>
 

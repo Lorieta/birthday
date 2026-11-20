@@ -151,7 +151,7 @@ export function ScrapbookHome() {
               Good moments, kept close.
             </p>
             <p className="text-[0.65rem] tracking-[0.2em] text-ink-soft/60 uppercase">
-              Our Digital Scrapbook
+              Scrapbook
             </p>
           </footer>
         </main>

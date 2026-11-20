@@ -15,7 +15,7 @@ const caveat = Caveat({
 });
 
 export const metadata: Metadata = {
-  title: "Our Digital Scrapbook",
+  title: "Scrapbook",
   description:
     "Photos, videos, and little moments worth keeping.",
 };

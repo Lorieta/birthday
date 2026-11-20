@@ -14,6 +14,7 @@ import { MediaImage, MediaVideo } from "@/components/scrapbook/media";
 import { ThemeToggle } from "@/components/scrapbook/theme-toggle";
 import { formatMemoryDate } from "@/lib/media";
 import type { MediaAsset } from "@/lib/scrapbook-types";
+import { cn } from "@/lib/utils";
 
 export function Hero({
   cover,
@@ -27,7 +28,7 @@ export function Hero({
   return (
     <section id="home" className="scroll-mt-8">
       <div className="paper-card relative">
-        <WashiTape className="-top-2 left-10 w-28 -rotate-6" />
+        <WashiTape className="-top-2 left-8 w-24 -rotate-6 sm:left-10 sm:w-28" />
         <WashiTape
           tone="sage"
           className="-top-3 right-24 hidden w-24 rotate-3 sm:block"
@@ -71,22 +72,22 @@ export function Hero({
 
           <div className="relative z-10 flex h-full min-h-[430px] flex-col justify-end px-5 pt-24 pb-7 sm:min-h-[420px] sm:px-9 sm:pb-9 lg:min-h-[470px] lg:px-12">
             <div className="max-w-2xl text-[#fff8f2]">
-              <p className="font-hand text-[2.2rem] leading-[1.16] font-semibold drop-shadow-[0_2px_10px_rgba(45,20,30,0.35)] sm:text-5xl lg:text-[3.6rem]">
+              <p className="font-hand text-[1.7rem] leading-[1.12] font-semibold drop-shadow-[0_2px_10px_rgba(45,20,30,0.35)] sm:text-5xl lg:text-[3.6rem]">
                 &ldquo;When I am afraid, I put my trust in you.&rdquo;
                 <br />
-                <span className="mt-1 inline-block text-[0.42em] font-medium tracking-wide text-[#ffe8ec]/90 sm:text-[0.38em]">
+                <span className="mt-1 inline-block text-[0.5em] font-medium tracking-wide text-[#ffe8ec]/90 sm:text-[0.38em]">
                   — Psalm 56:3
                 </span>
                 <br />
                 &ldquo;When the time is right, I, the Lord, will make it happen.&rdquo;
                 <br />
-                <span className="mt-1 inline-block text-[0.42em] font-medium tracking-wide text-[#ffe8ec]/90 sm:text-[0.38em]">
+                <span className="mt-1 inline-block text-[0.5em] font-medium tracking-wide text-[#ffe8ec]/90 sm:text-[0.38em]">
                   — Isaiah 60:22
                 </span>
-                <HeartDoodle className="ml-2 inline size-6 -translate-y-1 fill-current sm:size-8" filled />
+                <HeartDoodle className="ml-2 inline size-5 -translate-y-1 fill-current sm:size-8" filled />
               </p>
               <HandUnderline className="mt-1 max-w-sm text-[#ffdbe4]" />
-              <p className="mt-4 font-hand text-2xl text-[#ffe8ec] sm:text-3xl">
+              <p className="mt-4 font-hand text-xl text-[#ffe8ec] sm:text-3xl">
                 Memories since {formatMemoryDate(since)}{" "}
                 <HeartDoodle className="inline size-4 -translate-y-0.5" />
               </p>
@@ -100,11 +101,16 @@ export function Hero({
               <LittleHearts className="-left-24 top-2 text-[#ffe4ea]/70" />
             </div>
 
-            <div className="mt-6 flex flex-wrap items-center gap-2.5">
+            <div
+              className={cn(
+                "mt-6 flex flex-wrap items-center gap-2.5",
+                cover.kind !== "video" && "hidden sm:flex",
+              )}
+            >
               <Button
                 type="button"
                 onClick={onChangeCover}
-                className="h-9 rounded-full border border-white/30 bg-white/18 px-4 text-xs text-white backdrop-blur hover:bg-white/28"
+                className="hidden h-9 rounded-full border border-white/30 bg-white/18 px-4 text-xs text-white backdrop-blur hover:bg-white/28 sm:inline-flex"
               >
                 <Camera className="size-3.5" />
                 Change cover
@@ -119,10 +125,10 @@ export function Hero({
           </div>
 
           <LittleHearts className="top-24 left-6 z-20 hidden text-white/80 sm:flex" />
-          <LaceCorner className="pointer-events-none absolute right-2 bottom-2 z-20 size-20 text-white/80" />
+          <LaceCorner className="pointer-events-none absolute right-2 bottom-2 z-20 size-14 text-white/80 sm:size-20" />
           <LaceCorner
             flip
-            className="pointer-events-none absolute bottom-2 left-2 z-20 size-20 text-white/70"
+            className="pointer-events-none absolute bottom-2 left-2 z-20 size-14 text-white/70 sm:size-20"
           />
         </div>
       </div>

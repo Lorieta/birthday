@@ -99,7 +99,7 @@ export function AddMemoryDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-h-[92vh] w-[calc(100vw-1.5rem)] max-w-3xl overflow-y-auto bg-paper-soft p-5 sm:p-6">
         <DialogHeader>
-          <DialogTitle className="font-hand text-3xl text-ink">
+          <DialogTitle className="font-hand text-2xl text-ink sm:text-3xl">
             {memory ? "Edit this memory" : "Add a new memory"}
           </DialogTitle>
           <DialogDescription>
@@ -222,7 +222,7 @@ export function AddMemoryDialog({
                       onClick={() => setSticker(option.name)}
                       className={cn(
                         "flex size-9 items-center justify-center rounded-full ring-2 transition-transform hover:-translate-y-0.5",
-                        person && "size-14",
+                        person && "size-12 sm:size-14",
                         option.className,
                         selected
                           ? "scale-110 ring-rose-deep"
@@ -232,7 +232,7 @@ export function AddMemoryDialog({
                       {option.art ? (
                         <ArtImage
                           name={option.art}
-                          className={cn("size-6", person && "size-11")}
+                          className={cn("size-6", person && "size-9 sm:size-11")}
                         />
                       ) : (
                         <Icon className="size-4" strokeWidth={2.2} />

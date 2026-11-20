@@ -17,7 +17,7 @@ export function ThemeToggle({ className }: { className?: string }) {
       onClick={() => setTheme(isDark ? "light" : "dark")}
       aria-label={isDark ? "Switch to light mode" : "Switch to dark mode"}
       className={cn(
-        "relative inline-flex h-9 w-[74px] items-center rounded-full border border-[rgba(107,69,60,0.16)] bg-paper-soft/90 p-1 shadow-sm backdrop-blur transition-colors",
+        "relative inline-flex h-9 w-9 items-center rounded-full border border-[rgba(107,69,60,0.16)] bg-paper-soft/90 p-1 shadow-sm backdrop-blur transition-colors sm:w-[74px]",
         className,
       )}
     >
@@ -25,7 +25,7 @@ export function ThemeToggle({ className }: { className?: string }) {
         className={cn(
           "absolute left-1 flex size-7 items-center justify-center rounded-full shadow-sm transition-transform duration-300",
           isDark
-            ? "translate-x-[36px] bg-[#f0dcc4] text-[#8b5a3c]"
+            ? "translate-x-0 bg-[#f0dcc4] text-[#8b5a3c] sm:translate-x-[36px]"
             : "translate-x-0 bg-[#e6efd6] text-[#718a4d]",
         )}
       >
@@ -35,12 +35,12 @@ export function ThemeToggle({ className }: { className?: string }) {
           <ArtImage name="matcha" className="size-5 object-contain" />
         )}
       </span>
-      <span className="pointer-events-none ml-auto flex w-[30px] justify-center text-ink-soft/80">
+      <span className="pointer-events-none ml-auto hidden w-[30px] justify-center text-ink-soft/80 sm:flex">
         <Coffee
           className={cn("size-3.5 transition-opacity", isDark && "opacity-30")}
         />
       </span>
-      <span className="pointer-events-none absolute left-2.5 flex w-[30px] justify-center text-ink-soft/80">
+      <span className="pointer-events-none absolute left-2.5 hidden w-[30px] justify-center text-ink-soft/80 sm:flex">
         <ArtImage
           name="matcha"
           className={cn(

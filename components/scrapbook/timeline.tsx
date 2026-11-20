@@ -41,7 +41,7 @@ export function Timeline({
   return (
     <section id="timeline" className="scroll-mt-8 space-y-4">
       <SectionHeading
-        title="Our Timeline"
+        title="Timeline"
         action={
           <Button
             type="button"
@@ -63,7 +63,7 @@ export function Timeline({
           {memories.map((memory) => (
             <article
               key={memory.id}
-              className="paper-card group w-[236px] shrink-0 snap-start bg-paper-soft transition-transform duration-300 hover:-translate-y-1 sm:w-[250px]"
+              className="paper-card group w-[min(78vw,236px)] shrink-0 snap-start bg-paper-soft transition-transform duration-300 hover:-translate-y-1 sm:w-[250px]"
             >
               <div className="relative">
                 <button
@@ -76,13 +76,13 @@ export function Timeline({
                     <MediaPosterImage
                       media={memory.media}
                       alt={memory.media.alt ?? memory.title}
-                      sizes="260px"
+                      sizes="(max-width: 640px) 78vw, 260px"
                     />
                   ) : (
                     <MediaImage
                       media={memory.media}
                       alt={memory.media.alt ?? memory.title}
-                      sizes="260px"
+                      sizes="(max-width: 640px) 78vw, 260px"
                     />
                   )}
                   <span className="absolute inset-0 bg-gradient-to-t from-[#3b2028]/18 to-transparent" />
@@ -97,8 +97,8 @@ export function Timeline({
 
                 <Sticker
                   name={memory.sticker}
-                  className="absolute -top-2 right-2 size-8 rotate-6"
-                  size="sm"
+                  className="absolute -top-2 right-2 rotate-6"
+                  size="xs"
                 />
 
                 <div className="absolute top-2 left-2 flex gap-1 opacity-0 transition-opacity group-focus-within:opacity-100 group-hover:opacity-100">
@@ -106,7 +106,7 @@ export function Timeline({
                     type="button"
                     onClick={() => onEdit(memory)}
                     aria-label={`Edit ${memory.title}`}
-                    className="flex size-7 items-center justify-center rounded-full bg-white/85 text-ink shadow-sm backdrop-blur transition-colors hover:text-rose-deep"
+                    className="flex size-8 items-center justify-center rounded-full bg-white/85 text-ink shadow-sm backdrop-blur transition-colors hover:text-rose-deep sm:size-7"
                   >
                     <Pencil className="size-3" />
                   </button>
@@ -114,7 +114,7 @@ export function Timeline({
                     type="button"
                     onClick={() => onDelete(memory)}
                     aria-label={`Delete ${memory.title}`}
-                    className="flex size-7 items-center justify-center rounded-full bg-white/85 text-ink shadow-sm backdrop-blur transition-colors hover:text-destructive"
+                    className="flex size-8 items-center justify-center rounded-full bg-white/85 text-ink shadow-sm backdrop-blur transition-colors hover:text-destructive sm:size-7"
                   >
                     <Trash2 className="size-3" />
                   </button>
@@ -156,7 +156,7 @@ export function Timeline({
           <button
             type="button"
             onClick={onAdd}
-            className="flex w-[180px] shrink-0 snap-start flex-col items-center justify-center gap-2 rounded-[1.6rem] border border-dashed border-rose/35 bg-blush-soft/25 text-ink-soft transition-colors hover:bg-blush-soft/45 hover:text-rose-deep"
+            className="flex w-[min(62vw,180px)] shrink-0 snap-start flex-col items-center justify-center gap-2 rounded-[1.6rem] border border-dashed border-rose/35 bg-blush-soft/25 text-ink-soft transition-colors hover:bg-blush-soft/45 hover:text-rose-deep sm:w-[180px]"
           >
             <span className="flex size-11 items-center justify-center rounded-full bg-white/70 shadow-sm">
               <Plus className="size-5" />

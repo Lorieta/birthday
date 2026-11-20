@@ -23,10 +23,27 @@ export function ArtImage({
       width={art.width}
       height={art.height}
       priority={priority}
-      className={cn("pointer-events-none select-none", className)}
+      className={cn(
+        "pointer-events-none h-auto max-w-full select-none object-contain",
+        className,
+      )}
     />
   );
 }
+
+const stickerSizes = {
+  xs: "w-9 sm:w-10",
+  sm: "w-12 sm:w-14",
+  md: "w-16 sm:w-[4.5rem]",
+  lg: "w-20 sm:w-24",
+} as const;
+
+const personStickerSizes = {
+  xs: "w-14 sm:w-16",
+  sm: "w-20 sm:w-24",
+  md: "w-28 sm:w-32",
+  lg: "w-36 sm:w-40",
+} as const;
 
 export function ArtSticker({
   name,
@@ -35,16 +52,14 @@ export function ArtSticker({
 }: {
   name: ArtName;
   className?: string;
-  size?: "sm" | "md" | "lg";
+  size?: keyof typeof stickerSizes;
 }) {
   const art = getArt(name);
   if (!art) return null;
 
-  const person = isPersonArt(name);
-  const regularSize =
-    size === "sm" ? "size-12" : size === "md" ? "size-16" : "size-20";
-  const personSize =
-    size === "sm" ? "size-20" : size === "md" ? "size-32" : "size-40";
+  const sizeClass = isPersonArt(name)
+    ? personStickerSizes[size]
+    : stickerSizes[size];
 
   return (
     <Image
@@ -53,10 +68,9 @@ export function ArtSticker({
       width={art.width}
       height={art.height}
       className={cn(
-        "sticker-shadow pointer-events-none select-none object-contain",
-        person ? personSize : regularSize,
+        "sticker-shadow pointer-events-none h-auto max-w-full select-none object-contain",
+        sizeClass,
         className,
-        person && personSize,
       )}
     />
   );

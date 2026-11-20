@@ -1,24 +1,23 @@
 "use client";
 
+import { useEffect, useState } from "react";
+import { Drawer } from "@base-ui/react/drawer";
 import {
   CalendarDays,
   Heart,
   Home,
   Images,
-  Menu,
   NotebookPen,
   Plus,
+  X,
 } from "lucide-react";
-import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import {
-  Sheet,
-  SheetContent,
-  SheetTitle,
-} from "@/components/ui/sheet";
 import { ArtImage } from "@/components/scrapbook/art";
-import { Bow, HandUnderline, HeartDoodle } from "@/components/scrapbook/decorative";
-import { ThemeToggle } from "@/components/scrapbook/theme-toggle";
+import {
+  HandUnderline,
+  HeartDoodle,
+  MatchaMark,
+} from "@/components/scrapbook/decorative";
 import { cn } from "@/lib/utils";
 
 const navItems = [
@@ -36,17 +35,13 @@ function SidebarContent({
 }: {
   activeSection: string;
   onAdd: () => void;
-  onNavigate: (id: string) => void;
+  onNavigate?: () => void;
 }) {
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       <div className="text-center">
-        <Bow className="mx-auto size-16" />
-        <p className="mt-1 font-hand text-[2.05rem] leading-[0.98] font-semibold text-ink">
-          Our
-          <br />
-          Digital
-          <br />
+        <MatchaMark className="mx-auto w-14 sm:w-16" />
+        <p className="mt-1 font-hand text-[2.1rem] leading-none font-semibold text-ink">
           Scrapbook{" "}
           <HeartDoodle
             className="inline size-4 -translate-y-0.5 text-rose-deep"
@@ -64,7 +59,7 @@ function SidebarContent({
             <a
               key={id}
               href={`#${id}`}
-              onClick={() => onNavigate(id)}
+              onClick={onNavigate}
               aria-current={active ? "page" : undefined}
               className={cn(
                 "group flex items-center gap-3 rounded-full px-3 py-2.5 text-sm transition-colors",
@@ -136,60 +131,80 @@ export function Sidebar({
   activeSection: string;
   onAdd: () => void;
 }) {
-  const [mobileOpen, setMobileOpen] = useState(false);
+  const [drawerOpen, setDrawerOpen] = useState(false);
 
-  const handleNavigate = () => {
-    setMobileOpen(false);
-  };
+  useEffect(() => {
+    const desktop = window.matchMedia("(min-width: 1024px)");
+    const closeOnDesktop = () => {
+      if (desktop.matches) {
+        setDrawerOpen(false);
+      }
+    };
+
+    closeOnDesktop();
+    desktop.addEventListener("change", closeOnDesktop);
+    return () => desktop.removeEventListener("change", closeOnDesktop);
+  }, []);
 
   return (
     <>
       <header className="sticky top-0 z-40 col-span-full -mx-3 mb-1 flex items-center justify-between gap-3 border-b border-[rgba(107,69,60,0.12)] bg-paper/85 px-3 py-2.5 backdrop-blur-md sm:-mx-5 sm:px-5 lg:hidden">
-        <Button
-          type="button"
-          variant="outline"
-          size="icon"
-          aria-label="Open navigation"
-          onClick={() => setMobileOpen(true)}
-          className="rounded-full border-rose/25 bg-paper-soft/80 text-ink"
-        >
-          <Menu className="size-4" />
-        </Button>
         <div className="flex min-w-0 items-center gap-2">
-          <Bow className="size-7 shrink-0" />
+          <MatchaMark className="w-7 shrink-0" />
           <p className="truncate font-hand text-xl leading-none text-ink">
-            Our Digital Scrapbook
+            Scrapbook
           </p>
         </div>
-        <ThemeToggle className="h-8 w-[64px] shrink-0" />
       </header>
+
+      <Drawer.Root
+        open={drawerOpen}
+        onOpenChange={setDrawerOpen}
+        swipeDirection="left"
+      >
+        <Drawer.SwipeArea
+          aria-hidden="true"
+          className="fixed inset-y-0 left-0 z-30 w-6 touch-pan-y lg:hidden"
+        />
+        <Drawer.Portal>
+          <Drawer.Backdrop className="fixed inset-0 z-40 min-h-dvh bg-black/25 opacity-[calc(1-var(--drawer-swipe-progress,0))] transition-opacity duration-[450ms] ease-[cubic-bezier(0.32,0.72,0,1)] data-[ending-style]:opacity-0 data-[starting-style]:opacity-0 data-[swiping]:duration-0 lg:hidden" />
+          <Drawer.Viewport className="fixed inset-0 z-50 flex items-stretch justify-start lg:hidden">
+            <Drawer.Popup className="h-full w-[min(20rem,86vw)] overflow-y-auto overscroll-contain border-r border-[rgba(107,69,60,0.14)] bg-paper-soft p-5 text-ink shadow-[18px_0_45px_-30px_rgba(107,69,60,0.65)] outline-none transition-transform duration-[450ms] ease-[cubic-bezier(0.32,0.72,0,1)] will-change-transform [transform:translateX(var(--drawer-swipe-movement-x,0px))] data-[ending-style]:[transform:translateX(-100%)] data-[ending-style]:duration-[calc(var(--drawer-swipe-strength)*400ms)] data-[starting-style]:[transform:translateX(-100%)] data-[swiping]:duration-0">
+              <Drawer.Content className="flex min-h-full flex-col">
+                <Drawer.Title className="sr-only">
+                  Scrapbook navigation
+                </Drawer.Title>
+                <Drawer.Description className="sr-only">
+                  Swipe from the left edge to open this navigation panel.
+                </Drawer.Description>
+                <div className="mb-2 flex justify-end">
+                  <Drawer.Close
+                    type="button"
+                    aria-label="Close navigation"
+                    className="inline-flex size-8 items-center justify-center rounded-full text-ink-soft transition-colors hover:bg-blush-soft/60 hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-rose"
+                  >
+                    <X className="size-4" />
+                  </Drawer.Close>
+                </div>
+                <SidebarContent
+                  activeSection={activeSection}
+                  onAdd={() => {
+                    setDrawerOpen(false);
+                    onAdd();
+                  }}
+                  onNavigate={() => setDrawerOpen(false)}
+                />
+              </Drawer.Content>
+            </Drawer.Popup>
+          </Drawer.Viewport>
+        </Drawer.Portal>
+      </Drawer.Root>
 
       <aside className="sticky top-6 hidden h-[calc(100vh-3rem)] w-[250px] shrink-0 self-start lg:block">
         <div className="paper-card flex h-full flex-col overflow-y-auto p-5">
-          <SidebarContent
-            activeSection={activeSection}
-            onAdd={onAdd}
-            onNavigate={handleNavigate}
-          />
+          <SidebarContent activeSection={activeSection} onAdd={onAdd} />
         </div>
       </aside>
-
-      <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
-        <SheetContent
-          side="left"
-          className="w-[86vw] max-w-[320px] border-r border-[rgba(107,69,60,0.12)] bg-paper p-5"
-        >
-          <SheetTitle className="sr-only">Scrapbook navigation</SheetTitle>
-          <SidebarContent
-            activeSection={activeSection}
-            onAdd={() => {
-              setMobileOpen(false);
-              onAdd();
-            }}
-            onNavigate={handleNavigate}
-          />
-        </SheetContent>
-      </Sheet>
     </>
   );
 }

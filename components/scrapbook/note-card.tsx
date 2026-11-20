@@ -123,20 +123,20 @@ export function NoteBoard() {
         </Button>
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+      <div className="grid gap-3 sm:grid-cols-2 sm:gap-4 xl:grid-cols-3">
         {state.notes.map((note, index) => {
           const style = noteStyles[note.color];
 
           return (
             <article
               key={note.id}
-              className="paper-card min-h-[230px] p-5"
+              className="paper-card min-h-[210px] p-4 sm:min-h-[230px] sm:p-5"
               style={{ background: style.background, color: style.ink }}
             >
               <WashiTape
                 tone={style.tape}
                 className={cn(
-                  "-top-2 left-6 w-20",
+                  "-top-2 left-6 w-16 sm:w-20",
                   index % 2 === 0 ? "-rotate-3" : "rotate-3",
                 )}
               />
@@ -198,7 +198,7 @@ export function NoteBoard() {
             </span>
             <Sticker
               name="strawberry"
-              size="sm"
+              size="xs"
               className="absolute right-1 bottom-0 rotate-6"
             />
           </span>

@@ -161,7 +161,7 @@ export function Sticker({
 }: {
   name: StickerName;
   className?: string;
-  size?: "sm" | "md" | "lg";
+  size?: "xs" | "sm" | "md" | "lg";
 }) {
   const art = STICKER_ART[name];
 
@@ -178,17 +178,19 @@ export function Sticker({
       className={cn(
         "sticker-shadow inline-flex items-center justify-center rounded-full ring-2 ring-white/80",
         sticker.className,
-        size === "sm" && "size-12",
-        size === "md" && "size-16",
-        size === "lg" && "size-20",
+        size === "xs" && "size-9 sm:size-10",
+        size === "sm" && "size-12 sm:size-14",
+        size === "md" && "size-16 sm:size-[4.5rem]",
+        size === "lg" && "size-20 sm:size-24",
         className,
       )}
     >
       <Icon
         className={cn(
-          size === "sm" && "size-6",
-          size === "md" && "size-8",
-          size === "lg" && "size-10",
+          size === "xs" && "size-4 sm:size-5",
+          size === "sm" && "size-5 sm:size-6",
+          size === "md" && "size-7 sm:size-8",
+          size === "lg" && "size-9 sm:size-10",
         )}
         strokeWidth={2.2}
       />

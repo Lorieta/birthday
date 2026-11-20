@@ -71,9 +71,9 @@ export function CoverDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[85vh] max-w-2xl overflow-y-auto bg-paper-soft">
+      <DialogContent className="max-h-[92vh] w-[calc(100vw-1.5rem)] max-w-2xl overflow-y-auto bg-paper-soft p-4 sm:p-5">
         <DialogHeader>
-          <DialogTitle className="font-hand text-3xl text-ink">
+          <DialogTitle className="font-hand text-2xl text-ink sm:text-3xl">
             Change the cover
           </DialogTitle>
           <DialogDescription>
@@ -108,7 +108,7 @@ export function CoverDialog({
           </div>
 
           {uploads.length ? (
-            <div className="grid max-h-64 grid-cols-3 gap-2 overflow-y-auto rounded-2xl border border-[rgba(107,69,60,0.12)] bg-paper-soft/60 p-2 sm:grid-cols-4">
+            <div className="grid max-h-52 grid-cols-2 gap-2 overflow-y-auto rounded-2xl border border-[rgba(107,69,60,0.12)] bg-paper-soft/60 p-2 sm:max-h-64 sm:grid-cols-4">
               {uploads.map((media, index) => {
                 const selected = mediaKey(media) === coverKey;
                 const label = mediaLabel(media);

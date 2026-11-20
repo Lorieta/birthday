@@ -2,8 +2,8 @@ import { ArtImage } from "@/components/scrapbook/art";
 import { WASHI_ART } from "@/lib/sticker-art";
 import { cn } from "@/lib/utils";
 
-export function Bow({ className }: { className?: string }) {
-  return <ArtImage name="bow-large" className={cn("object-contain", className)} />;
+export function MatchaMark({ className }: { className?: string }) {
+  return <ArtImage name="matcha" className={cn("object-contain", className)} />;
 }
 
 export function WashiTape({
