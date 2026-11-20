@@ -1,7 +1,7 @@
 "use client";
 
-import { ImagePlus, Loader2, Trash2 } from "lucide-react";
-import { useMemo, useState } from "react";
+import { Check, ImagePlus, Images, Loader2, Play, Trash2 } from "lucide-react";
+import { useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import {
@@ -17,9 +17,14 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { ArtImage } from "@/components/scrapbook/art";
 import { CloudinaryUpload } from "@/components/scrapbook/cloudinary-upload";
-import { MediaImage, MediaVideo } from "@/components/scrapbook/media";
+import {
+  MediaImage,
+  MediaPosterImage,
+  MediaVideo,
+} from "@/components/scrapbook/media";
 import { stickerOptions } from "@/components/scrapbook/stickers";
 import { useScrapbook } from "@/components/scrapbook/scrapbook-provider";
+import { hasDisplayableMedia, memoryAppearsInSection } from "@/lib/media";
 import type {
   MediaAsset,
   Memory,
@@ -33,6 +38,10 @@ function todayISO() {
   const now = new Date();
   const offset = now.getTimezoneOffset() * 60_000;
   return new Date(now.getTime() - offset).toISOString().slice(0, 10);
+}
+
+function mediaKey(media: MediaAsset) {
+  return media.publicId ?? media.src;
 }
 
 export function AddMemoryDialog({
@@ -51,6 +60,20 @@ export function AddMemoryDialog({
     () => state.albums.filter((a) => a.section === "gallery"),
     [state.albums],
   );
+  const galleryChoices = useMemo(() => {
+    const seen = new Set<string>();
+
+    return state.memories
+      .filter((item) => memoryAppearsInSection(item, "gallery"))
+      .filter((item) => hasDisplayableMedia(item.media))
+      .sort((a, b) => b.date.localeCompare(a.date))
+      .filter((item) => {
+        const key = mediaKey(item.media);
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      });
+  }, [state.memories]);
 
   const [media, setMedia] = useState<MediaAsset | null>(memory?.media ?? null);
   const [title, setTitle] = useState(memory?.title ?? "");
@@ -64,6 +87,9 @@ export function AddMemoryDialog({
     memory?.albumId ?? "",
   );
   const [uploading, setUploading] = useState(false);
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const initialSection = useRef(section);
+  const initialSections = useRef(memory?.sections);
 
   const handleSave = () => {
     if (!media) {
@@ -78,6 +104,10 @@ export function AddMemoryDialog({
 
     const selectedAlbumId =
       section === "gallery" && albumId ? albumId : undefined;
+    const sections =
+      section === initialSection.current
+        ? initialSections.current
+        : [section];
 
     onSubmit(
       {
@@ -87,11 +117,13 @@ export function AddMemoryDialog({
         caption: caption.trim(),
         sticker,
         section,
+        sections,
         albumId: selectedAlbumId,
       },
       memory?.id,
     );
 
+    setPickerOpen(false);
     onOpenChange(false);
   };
 
@@ -146,14 +178,96 @@ export function AddMemoryDialog({
               </div>
             )}
 
-            <CloudinaryUpload
-              onUploaded={(asset) => setMedia(asset)}
-              onUploadingChange={setUploading}
-              multiple={false}
-              label={media ? "Replace media" : "Choose photo or video"}
-              compact
-              className="w-full"
-            />
+            <div className="grid grid-cols-2 gap-2">
+              <CloudinaryUpload
+                onUploaded={(asset) => setMedia(asset)}
+                onUploadingChange={setUploading}
+                multiple={false}
+                label={media ? "Replace media" : "Upload photo"}
+                compact
+                className="w-full"
+              />
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setPickerOpen((open) => !open)}
+                aria-expanded={pickerOpen}
+                className="w-full rounded-full"
+              >
+                <Images className="size-4" />
+                Pick from gallery
+              </Button>
+            </div>
+            {pickerOpen ? (
+              <div className="space-y-2 rounded-2xl border border-[rgba(107,69,60,0.14)] bg-paper p-2">
+                <div className="flex items-center justify-between gap-2 px-1">
+                  <p className="text-xs font-semibold text-ink">
+                    Gallery photos
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => setPickerOpen(false)}
+                    className="text-[0.7rem] text-ink-soft transition-colors hover:text-ink"
+                  >
+                    Done
+                  </button>
+                </div>
+                {galleryChoices.length ? (
+                  <div className="grid max-h-44 grid-cols-3 gap-2 overflow-y-auto sm:grid-cols-4">
+                    {galleryChoices.map((item) => {
+                      const key = mediaKey(item.media);
+                      const selected = media ? mediaKey(media) === key : false;
+
+                      return (
+                        <button
+                          key={item.id}
+                          type="button"
+                          onClick={() => {
+                            setMedia(item.media);
+                            setPickerOpen(false);
+                          }}
+                          aria-pressed={selected}
+                          aria-label={`Use ${item.title} from the gallery`}
+                          title={item.title}
+                          className={cn(
+                            "relative aspect-square overflow-hidden rounded-xl border border-[rgba(107,69,60,0.12)] bg-paper-deep/40 transition-colors hover:border-rose-deep/50",
+                            selected && "border-rose-deep ring-2 ring-rose/30",
+                          )}
+                        >
+                          {item.media.kind === "video" ? (
+                            <MediaPosterImage
+                              media={item.media}
+                              alt={item.title}
+                              sizes="(max-width: 768px) 25vw, 160px"
+                            />
+                          ) : (
+                            <MediaImage
+                              media={item.media}
+                              alt={item.title}
+                              sizes="(max-width: 768px) 25vw, 160px"
+                            />
+                          )}
+                          {item.media.kind === "video" ? (
+                            <span className="absolute bottom-1.5 left-1.5 flex size-6 items-center justify-center rounded-full bg-black/50 text-white">
+                              <Play className="size-3 fill-current" />
+                            </span>
+                          ) : null}
+                          {selected ? (
+                            <span className="absolute top-1.5 right-1.5 flex size-6 items-center justify-center rounded-full bg-rose-deep text-white">
+                              <Check className="size-3.5" />
+                            </span>
+                          ) : null}
+                        </button>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <p className="px-1 pb-1 text-xs text-ink-soft">
+                    No gallery photos yet.
+                  </p>
+                )}
+              </div>
+            ) : null}
             {uploading ? (
               <p className="inline-flex items-center gap-1.5 text-xs text-ink-soft">
                 <Loader2 className="size-3.5 animate-spin" />
