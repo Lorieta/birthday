@@ -7,7 +7,7 @@ import { SectionHeading } from "@/components/scrapbook/section-heading";
 import { Sticker } from "@/components/scrapbook/stickers";
 import { useScrapbook } from "@/components/scrapbook/scrapbook-provider";
 import { MediaImage, MediaPosterImage } from "@/components/scrapbook/media";
-import { formatMemoryDate } from "@/lib/media";
+import { formatMemoryDate, memoryAppearsInSection } from "@/lib/media";
 import type { Memory } from "@/lib/scrapbook-types";
 import { cn } from "@/lib/utils";
 
@@ -26,7 +26,7 @@ export function Timeline({
   const scrollerRef = useRef<HTMLDivElement>(null);
 
   const memories = state.memories
-    .filter((memory) => memory.section === "timeline")
+    .filter((memory) => memoryAppearsInSection(memory, "timeline"))
     .sort((a, b) => a.date.localeCompare(b.date));
 
   const scrollBy = (direction: 1 | -1) => {

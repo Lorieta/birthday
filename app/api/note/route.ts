@@ -1,11 +1,23 @@
-import { NOTE_LIMITS, normalizeBoardNotes, readNoteBoard, saveNoteBoard } from "@/lib/note-store";
+import { normalizeMediaAsset } from "@/lib/media";
+import {
+  NOTE_LIMITS,
+  normalizeBoardNotes,
+  readNoteBoard,
+  saveNoteBoard,
+} from "@/lib/note-store";
 
 const NO_STORE = { "Cache-Control": "private, no-store" };
 
 export async function GET() {
-  const notes = await readNoteBoard();
+  const stored = await readNoteBoard();
 
-  return Response.json({ notes }, { headers: NO_STORE });
+  return Response.json(
+    {
+      notes: stored?.notes ?? null,
+      cover: stored?.cover ?? null,
+    },
+    { headers: NO_STORE },
+  );
 }
 
 export async function POST(request: Request) {
@@ -26,7 +38,8 @@ export async function POST(request: Request) {
     );
   }
 
-  const notes = normalizeBoardNotes((body as { notes?: unknown }).notes);
+  const payload = body as { notes?: unknown; cover?: unknown };
+  const notes = normalizeBoardNotes(payload.notes);
   if (!notes || notes.length > NOTE_LIMITS.count) {
     return Response.json(
       { error: "Invalid notes." },
@@ -34,8 +47,13 @@ export async function POST(request: Request) {
     );
   }
 
+  const cover =
+    payload.cover === null || payload.cover === undefined
+      ? undefined
+      : normalizeMediaAsset(payload.cover) ?? undefined;
+
   try {
-    await saveNoteBoard(notes);
+    await saveNoteBoard({ notes, cover });
     return Response.json({ ok: true }, { headers: NO_STORE });
   } catch {
     return Response.json(

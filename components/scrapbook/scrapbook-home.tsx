@@ -174,9 +174,10 @@ export function ScrapbookHome() {
         open={coverOpen}
         onOpenChange={setCoverOpen}
         cover={state.cover}
-        onUploaded={(media) => {
-          setCover(media);
-          toast.success("Cover updated");
+        onSelected={async (media) => {
+          const saved = await setCover(media);
+          if (saved) toast.success("Cover updated and synced");
+          else toast.error("Cover updated locally only");
         }}
       />
 

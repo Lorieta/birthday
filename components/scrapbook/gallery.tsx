@@ -9,7 +9,7 @@ import { Sticker } from "@/components/scrapbook/stickers";
 import { WashiTape } from "@/components/scrapbook/decorative";
 import { useScrapbook } from "@/components/scrapbook/scrapbook-provider";
 import { MediaImage, MediaPosterImage } from "@/components/scrapbook/media";
-import { formatMemoryDate } from "@/lib/media";
+import { formatMemoryDate, memoryAppearsInSection } from "@/lib/media";
 import type { Memory } from "@/lib/scrapbook-types";
 import { cn } from "@/lib/utils";
 
@@ -66,7 +66,10 @@ export function Gallery({
       : "all";
 
   const memories = useMemo(
-    () => state.memories.filter((memory) => memory.section === "gallery"),
+    () =>
+      state.memories.filter((memory) =>
+        memoryAppearsInSection(memory, "gallery"),
+      ),
     [state.memories],
   );
 

@@ -35,6 +35,8 @@ export interface MediaAsset {
   alt?: string;
 }
 
+export type MemorySection = "timeline" | "gallery";
+
 export interface Memory {
   id: string;
   title: string;
@@ -42,7 +44,8 @@ export interface Memory {
   caption: string;
   media: MediaAsset;
   sticker: StickerName;
-  section: "timeline" | "gallery";
+  section: MemorySection;
+  sections?: MemorySection[];
   albumId?: string;
 }
 

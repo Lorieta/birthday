@@ -1,6 +1,7 @@
 import { v2 as cloudinary } from "cloudinary";
 import { getCloudinaryConfig } from "@/lib/cloudinary-server";
-import type { BoardNote, NoteColor } from "@/lib/scrapbook-types";
+import { normalizeMediaAsset } from "@/lib/media";
+import type { BoardNote, MediaAsset, NoteColor } from "@/lib/scrapbook-types";
 
 const NOTE_PUBLIC_ID = "birthday-scrapbook/note.json";
 const NOTE_VERSION = 2;
@@ -13,9 +14,10 @@ export const NOTE_LIMITS = {
   signature: 200,
 } as const;
 
-interface StoredNoteBoard {
+export interface StoredNoteBoard {
   version: typeof NOTE_VERSION;
   notes: BoardNote[];
+  cover?: MediaAsset;
 }
 
 function configureCloudinary() {
@@ -71,35 +73,50 @@ export function normalizeBoardNotes(value: unknown): BoardNote[] | null {
   return notes;
 }
 
-export function parseStoredNotes(value: string): BoardNote[] | null {
+function normalizeStoredCover(value: unknown): MediaAsset | undefined {
+  const cover = normalizeMediaAsset(value);
+  return cover?.src ? cover : undefined;
+}
+
+export function parseStoredBoard(value: string): StoredNoteBoard | null {
   try {
     const parsed: unknown = JSON.parse(value);
     if (!parsed || typeof parsed !== "object") return null;
 
     const board = parsed as Partial<StoredNoteBoard>;
     if (Array.isArray(board.notes)) {
-      return normalizeBoardNotes(board.notes);
+      const notes = normalizeBoardNotes(board.notes);
+      if (!notes) return null;
+
+      return {
+        version: NOTE_VERSION,
+        notes,
+        cover: normalizeStoredCover(board.cover),
+      };
     }
 
     const legacy = parsed as { note?: unknown; signature?: unknown };
     if (typeof legacy.note !== "string") return null;
 
-    return [
-      {
-        id: "note-legacy",
-        title: "A Little Note",
-        text: legacy.note,
-        signature:
-          typeof legacy.signature === "string" ? legacy.signature : "",
-        color: "blush",
-      },
-    ];
+    return {
+      version: NOTE_VERSION,
+      notes: [
+        {
+          id: "note-legacy",
+          title: "A Little Note",
+          text: legacy.note,
+          signature:
+            typeof legacy.signature === "string" ? legacy.signature : "",
+          color: "blush",
+        },
+      ],
+    };
   } catch {
     return null;
   }
 }
 
-export async function readNoteBoard(): Promise<BoardNote[] | null> {
+export async function readNoteBoard(): Promise<StoredNoteBoard | null> {
   if (!configureCloudinary()) return null;
 
   const url = cloudinary.utils.private_download_url(
@@ -115,18 +132,20 @@ export async function readNoteBoard(): Promise<BoardNote[] | null> {
   try {
     const response = await fetch(url, { cache: "no-store" });
     if (!response.ok) return null;
-    return parseStoredNotes(await response.text());
+    return parseStoredBoard(await response.text());
   } catch {
     return null;
   }
 }
 
-export async function saveNoteBoard(notes: BoardNote[]): Promise<void> {
+export async function saveNoteBoard(
+  board: Omit<StoredNoteBoard, "version">,
+): Promise<void> {
   if (!configureCloudinary()) {
     throw new Error("Cloudinary is not configured");
   }
 
-  const payload: StoredNoteBoard = { version: NOTE_VERSION, notes };
+  const payload: StoredNoteBoard = { version: NOTE_VERSION, ...board };
   const data = Buffer.from(JSON.stringify(payload), "utf8").toString("base64");
 
   await cloudinary.uploader.upload(`data:application/json;base64,${data}`, {

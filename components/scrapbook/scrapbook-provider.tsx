@@ -11,6 +11,7 @@ import {
   type ReactNode,
 } from "react";
 import { titleFromCloudinaryPublicId } from "@/lib/cloudinary-asset";
+import { normalizeMediaAsset } from "@/lib/media";
 import {
   GALLERY_SEED_ALBUMS,
   TIMELINE_ALBUM,
@@ -109,12 +110,11 @@ interface ScrapbookContextValue {
   addAlbum: (name: string) => Album | null;
   renameAlbum: (id: string, name: string) => void;
   deleteAlbum: (id: string) => void;
-  setCover: (cover: MediaAsset) => void;
+  setCover: (cover: MediaAsset) => Promise<boolean>;
   addBoardNote: (note: NewBoardNote) => Promise<boolean>;
   updateBoardNote: (id: string, note: NewBoardNote) => Promise<boolean>;
   deleteBoardNote: (id: string) => Promise<boolean>;
   setSince: (since: string) => void;
-  reset: () => void;
 }
 
 const ScrapbookContext = createContext<ScrapbookContextValue | null>(null);
@@ -263,6 +263,7 @@ function mergeCloudinaryMedia(
       media: item.media,
       sticker: "heart",
       section: "gallery",
+      sections: ["timeline", "gallery"],
       albumId: seededGalleryAlbumId(id),
     });
   }
@@ -272,29 +273,7 @@ function mergeCloudinaryMedia(
 }
 
 function normalizeMedia(value: unknown, fallback: MediaAsset): MediaAsset {
-  if (!value || typeof value !== "object") return fallback;
-
-  const media = value as Partial<MediaAsset>;
-
-  if (
-    (media.kind !== "image" && media.kind !== "video") ||
-    typeof media.src !== "string" ||
-    (media.source !== "cloudinary" && media.source !== "local")
-  ) {
-    return fallback;
-  }
-
-  return {
-    kind: media.kind,
-    source: media.source,
-    src: media.src,
-    publicId: typeof media.publicId === "string" ? media.publicId : undefined,
-    poster: typeof media.poster === "string" ? media.poster : undefined,
-    width: typeof media.width === "number" ? media.width : undefined,
-    height: typeof media.height === "number" ? media.height : undefined,
-    duration: typeof media.duration === "number" ? media.duration : undefined,
-    alt: typeof media.alt === "string" ? media.alt : undefined,
-  };
+  return normalizeMediaAsset(value) ?? fallback;
 }
 
 function normalizeMemory(value: unknown): Memory | null {
@@ -314,6 +293,12 @@ function normalizeMemory(value: unknown): Memory | null {
 
   const albumId =
     typeof memory.albumId === "string" && memory.albumId ? memory.albumId : undefined;
+  const sections = Array.isArray(memory.sections)
+    ? memory.sections.filter(
+        (section): section is "timeline" | "gallery" =>
+          section === "timeline" || section === "gallery",
+      )
+    : [];
 
   return {
     id: memory.id,
@@ -322,6 +307,7 @@ function normalizeMemory(value: unknown): Memory | null {
     caption: memory.caption,
     sticker: typeof memory.sticker === "string" ? memory.sticker : "heart",
     section: memory.section,
+    sections: sections.length ? sections : [memory.section],
     albumId,
     media: normalizeMedia(
       memory.media,
@@ -618,11 +604,17 @@ export function ScrapbookProvider({ children }: { children: ReactNode }) {
         if (versionAtStart !== noteVersion.current) return;
         if (!data || typeof data !== "object") return;
 
-        const stored = data as { notes?: unknown };
+        const stored = data as { notes?: unknown; cover?: unknown };
         const notes = normalizeBoardNotes(stored.notes);
-        if (!notes) return;
+        const cover = normalizeMediaAsset(stored.cover);
+        if (!notes && !cover?.src) return;
 
-        updateState((current) => withBoardNotes(current, notes));
+        updateState((current) => {
+          let next = current;
+          if (notes) next = withBoardNotes(next, notes);
+          if (cover?.src) next = { ...next, cover };
+          return next;
+        });
       })
       .catch(() => {});
 
@@ -661,7 +653,11 @@ export function ScrapbookProvider({ children }: { children: ReactNode }) {
 
   const addMemory = useCallback((memory: NewMemory) => {
     mediaVersion.current += 1;
-    const created: Memory = { ...memory, id: generateId() };
+    const created: Memory = {
+      ...memory,
+      id: generateId(),
+      sections: memory.sections?.length ? memory.sections : [memory.section],
+    };
 
     updateState((current) => ({
       ...current,
@@ -748,25 +744,19 @@ export function ScrapbookProvider({ children }: { children: ReactNode }) {
     }));
   }, []);
 
-  const setCover = useCallback((cover: MediaAsset) => {
-    updateState((current) => ({ ...current, cover }));
-  }, []);
-
-  const persistBoardNotes = useCallback(
-    async (updater: (notes: BoardNote[]) => BoardNote[]) => {
+  const persistNoteBoard = useCallback(
+    async (updater?: (state: ScrapbookState) => ScrapbookState) => {
       noteVersion.current += 1;
-      let nextNotes: BoardNote[] = [];
+      const next = updater ? updater(currentState) : currentState;
+      if (updater) updateState(() => next);
 
-      updateState((current) => {
-        nextNotes = updater(current.notes);
-        return withBoardNotes(current, nextNotes);
-      });
+      const cover = next.cover?.src ? next.cover : undefined;
 
       try {
         const response = await fetch("/api/note", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ notes: nextNotes }),
+          body: JSON.stringify({ notes: next.notes, cover }),
         });
         return response.ok;
       } catch {
@@ -774,6 +764,17 @@ export function ScrapbookProvider({ children }: { children: ReactNode }) {
       }
     },
     [],
+  );
+
+  const setCover = useCallback(
+    (cover: MediaAsset) => persistNoteBoard((current) => ({ ...current, cover })),
+    [persistNoteBoard],
+  );
+
+  const persistBoardNotes = useCallback(
+    (updater: (notes: BoardNote[]) => BoardNote[]) =>
+      persistNoteBoard((current) => withBoardNotes(current, updater(current.notes))),
+    [persistNoteBoard],
   );
 
   const addBoardNote = useCallback(
@@ -803,12 +804,6 @@ export function ScrapbookProvider({ children }: { children: ReactNode }) {
     updateState((current) => ({ ...current, since }));
   }, []);
 
-  const reset = useCallback(() => {
-    noteVersion.current += 1;
-    mediaVersion.current += 1;
-    updateState(() => defaultScrapbook);
-  }, []);
-
   const value = useMemo<ScrapbookContextValue>(
     () => ({
       state,
@@ -823,7 +818,6 @@ export function ScrapbookProvider({ children }: { children: ReactNode }) {
       updateBoardNote,
       deleteBoardNote,
       setSince,
-      reset,
     }),
     [
       state,
@@ -838,7 +832,6 @@ export function ScrapbookProvider({ children }: { children: ReactNode }) {
       updateBoardNote,
       deleteBoardNote,
       setSince,
-      reset,
     ],
   );
 

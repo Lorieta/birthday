@@ -1,4 +1,4 @@
-import type { MediaAsset } from "@/lib/scrapbook-types";
+import type { MediaAsset, Memory, MemorySection } from "@/lib/scrapbook-types";
 
 /** Derive the cloud name from a Cloudinary public URL. */
 function parseCloudNameFromSrc(src: string | undefined): string | undefined {
@@ -7,8 +7,37 @@ function parseCloudNameFromSrc(src: string | undefined): string | undefined {
   return match ? match[1] : undefined;
 }
 
+export function memoryAppearsInSection(memory: Memory, section: MemorySection) {
+  return memory.sections?.includes(section) ?? memory.section === section;
+}
+
 export function isCloudinaryAsset(media: MediaAsset) {
   return media.source === "cloudinary" && Boolean(media.publicId);
+}
+
+export function normalizeMediaAsset(value: unknown): MediaAsset | null {
+  if (!value || typeof value !== "object") return null;
+
+  const media = value as Partial<MediaAsset>;
+  if (
+    (media.kind !== "image" && media.kind !== "video") ||
+    typeof media.src !== "string" ||
+    (media.source !== "cloudinary" && media.source !== "local")
+  ) {
+    return null;
+  }
+
+  return {
+    kind: media.kind,
+    source: media.source,
+    src: media.src,
+    publicId: typeof media.publicId === "string" ? media.publicId : undefined,
+    poster: typeof media.poster === "string" ? media.poster : undefined,
+    width: typeof media.width === "number" ? media.width : undefined,
+    height: typeof media.height === "number" ? media.height : undefined,
+    duration: typeof media.duration === "number" ? media.duration : undefined,
+    alt: typeof media.alt === "string" ? media.alt : undefined,
+  };
 }
 
 export function hasDisplayableMedia(media: MediaAsset) {
