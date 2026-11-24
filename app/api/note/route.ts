@@ -2,6 +2,7 @@ import { normalizeMediaAsset } from "@/lib/media";
 import {
   NOTE_LIMITS,
   normalizeBoardNotes,
+  normalizeMemories,
   readNoteBoard,
   saveNoteBoard,
 } from "@/lib/note-store";
@@ -15,6 +16,7 @@ export async function GET() {
     {
       notes: stored?.notes ?? null,
       cover: stored?.cover ?? null,
+      memories: stored?.memories ?? null,
     },
     { headers: NO_STORE },
   );
@@ -38,7 +40,11 @@ export async function POST(request: Request) {
     );
   }
 
-  const payload = body as { notes?: unknown; cover?: unknown };
+  const payload = body as {
+    notes?: unknown;
+    cover?: unknown;
+    memories?: unknown;
+  };
   const notes = normalizeBoardNotes(payload.notes);
   if (!notes || notes.length > NOTE_LIMITS.count) {
     return Response.json(
@@ -52,8 +58,20 @@ export async function POST(request: Request) {
       ? undefined
       : normalizeMediaAsset(payload.cover) ?? undefined;
 
+  const memoriesPresent =
+    payload.memories !== undefined && payload.memories !== null;
+  const memories = memoriesPresent
+    ? normalizeMemories(payload.memories) ?? undefined
+    : undefined;
+  if (memoriesPresent && !memories) {
+    return Response.json(
+      { error: "Invalid memories." },
+      { status: 400, headers: NO_STORE },
+    );
+  }
+
   try {
-    await saveNoteBoard({ notes, cover });
+    await saveNoteBoard({ notes, cover, memories });
     return Response.json({ ok: true }, { headers: NO_STORE });
   } catch {
     return Response.json(

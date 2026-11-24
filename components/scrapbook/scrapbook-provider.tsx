@@ -593,6 +593,9 @@ export function ScrapbookProvider({ children }: { children: ReactNode }) {
   );
   const noteVersion = useRef(0);
   const mediaVersion = useRef(0);
+  const memoriesPersistTimer = useRef<ReturnType<typeof setTimeout> | null>(
+    null,
+  );
 
   useEffect(() => {
     const controller = new AbortController();
@@ -604,15 +607,36 @@ export function ScrapbookProvider({ children }: { children: ReactNode }) {
         if (versionAtStart !== noteVersion.current) return;
         if (!data || typeof data !== "object") return;
 
-        const stored = data as { notes?: unknown; cover?: unknown };
+        const stored = data as {
+          notes?: unknown;
+          cover?: unknown;
+          memories?: unknown;
+        };
         const notes = normalizeBoardNotes(stored.notes);
         const cover = normalizeMediaAsset(stored.cover);
-        if (!notes && !cover?.src) return;
+        const serverMemories: Memory[] = Array.isArray(stored.memories)
+          ? (stored.memories as Memory[])
+          : [];
+        if (!notes && !cover?.src && !serverMemories.length) return;
 
         updateState((current) => {
           let next = current;
           if (notes) next = withBoardNotes(next, notes);
           if (cover?.src) next = { ...next, cover };
+          if (serverMemories.length) {
+            const localIds = new Set(
+              current.memories.map((memory) => memory.id),
+            );
+            next = {
+              ...next,
+              memories: [
+                ...serverMemories.filter(
+                  (memory) => !localIds.has(memory.id),
+                ),
+                ...current.memories,
+              ],
+            };
+          }
           return next;
         });
       })
@@ -651,6 +675,42 @@ export function ScrapbookProvider({ children }: { children: ReactNode }) {
     return () => controller.abort();
   }, []);
 
+  useEffect(
+    () => () => {
+      if (memoriesPersistTimer.current !== null) {
+        clearTimeout(memoriesPersistTimer.current);
+        memoriesPersistTimer.current = null;
+      }
+    },
+    [],
+  );
+
+  const persistMemories = useCallback(async (memories: Memory[]) => {
+    try {
+      const response = await fetch("/api/note", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ memories }),
+      });
+      return response.ok;
+    } catch {
+      return false;
+    }
+  }, []);
+
+  const persistMemoriesDebounced = useCallback(
+    (memories: Memory[]) => {
+      if (memoriesPersistTimer.current !== null) {
+        clearTimeout(memoriesPersistTimer.current);
+      }
+      memoriesPersistTimer.current = setTimeout(() => {
+        memoriesPersistTimer.current = null;
+        void persistMemories(memories);
+      }, 300);
+    },
+    [persistMemories],
+  );
+
   const addMemory = useCallback((memory: NewMemory) => {
     mediaVersion.current += 1;
     const created: Memory = {
@@ -663,9 +723,10 @@ export function ScrapbookProvider({ children }: { children: ReactNode }) {
       ...current,
       memories: [created, ...current.memories],
     }));
+    persistMemoriesDebounced(currentState.memories);
 
     return created;
-  }, []);
+  }, [persistMemoriesDebounced]);
 
   const updateMemory = useCallback((id: string, memory: NewMemory) => {
     mediaVersion.current += 1;
@@ -689,7 +750,8 @@ export function ScrapbookProvider({ children }: { children: ReactNode }) {
         ? withCloudinaryDeleted(next, replacedPublicId)
         : next;
     });
-  }, []);
+    persistMemoriesDebounced(currentState.memories);
+  }, [persistMemoriesDebounced]);
 
   const deleteMemory = useCallback((id: string) => {
     mediaVersion.current += 1;
@@ -705,7 +767,8 @@ export function ScrapbookProvider({ children }: { children: ReactNode }) {
         ? withCloudinaryDeleted(next, deleted.media.publicId)
         : next;
     });
-  }, []);
+    persistMemoriesDebounced(currentState.memories);
+  }, [persistMemoriesDebounced]);
 
   const addAlbum = useCallback((name: string) => {
     const trimmed = name.trim();
@@ -756,7 +819,11 @@ export function ScrapbookProvider({ children }: { children: ReactNode }) {
         const response = await fetch("/api/note", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ notes: next.notes, cover }),
+          body: JSON.stringify({
+            notes: next.notes,
+            cover,
+            memories: next.memories,
+          }),
         });
         return response.ok;
       } catch {

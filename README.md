@@ -33,4 +33,4 @@ You can check out [the Next.js GitHub repository](https://github.com/vercel/next
 
 Connect the repo to Netlify. Build settings are in `netlify.toml` (`npm run build`, publish `.next`).
 
-Add `CLOUDINARY_URL` under **Site configuration → Environment variables** using the value from `.env.local`. The note board is stored as a private raw JSON asset in Cloudinary, so notes persist across browsers and deploys; memories and albums remain in browser localStorage.
+Add `CLOUDINARY_URL` under **Site configuration → Environment variables** using the value from `.env.local`. The note board is stored as a private raw JSON asset in Cloudinary, so notes and memory titles/captions persist across browsers and deploys; albums remain in browser localStorage.

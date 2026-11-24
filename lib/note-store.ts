@@ -1,11 +1,38 @@
 import { v2 as cloudinary } from "cloudinary";
 import { getCloudinaryConfig } from "@/lib/cloudinary-server";
 import { normalizeMediaAsset } from "@/lib/media";
-import type { BoardNote, MediaAsset, NoteColor } from "@/lib/scrapbook-types";
+import type {
+  BoardNote,
+  MediaAsset,
+  Memory,
+  MemorySection,
+  NoteColor,
+  StickerName,
+} from "@/lib/scrapbook-types";
 
 const NOTE_PUBLIC_ID = "birthday-scrapbook/note.json";
 const NOTE_VERSION = 2;
 const NOTE_COLORS: NoteColor[] = ["blush", "sage", "butter", "lavender"];
+const MEMORY_LIMITS = { count: 100 } as const;
+const MEMORY_STICKERS: StickerName[] = [
+  "heart",
+  "matcha",
+  "strawberry",
+  "couple-hug",
+  "couple-kiss",
+  "couple-peace",
+  "girl-shy",
+  "boy-shy",
+  "couple-drinks",
+  "gamepad",
+  "ferris",
+  "cake",
+  "flower",
+  "camera",
+  "cat",
+  "bow",
+  "sparkle",
+];
 
 export const NOTE_LIMITS = {
   count: 50,
@@ -18,6 +45,7 @@ export interface StoredNoteBoard {
   version: typeof NOTE_VERSION;
   notes: BoardNote[];
   cover?: MediaAsset;
+  memories?: Memory[];
 }
 
 function configureCloudinary() {
@@ -78,6 +106,66 @@ function normalizeStoredCover(value: unknown): MediaAsset | undefined {
   return cover?.src ? cover : undefined;
 }
 
+export function normalizeMemory(value: unknown): Memory | null {
+  if (!value || typeof value !== "object") return null;
+
+  const memory = value as Partial<Memory>;
+
+  if (
+    typeof memory.id !== "string" ||
+    typeof memory.title !== "string" ||
+    typeof memory.date !== "string" ||
+    typeof memory.caption !== "string" ||
+    (memory.section !== "timeline" && memory.section !== "gallery")
+  ) {
+    return null;
+  }
+
+  const media = normalizeMediaAsset(memory.media);
+  if (!media) return null;
+
+  const sections = Array.isArray(memory.sections)
+    ? memory.sections.filter(
+        (section): section is MemorySection =>
+          section === "timeline" || section === "gallery",
+      )
+    : [];
+
+  return {
+    id: memory.id,
+    title: memory.title,
+    date: memory.date,
+    caption: memory.caption,
+    sticker:
+      typeof memory.sticker === "string" &&
+      MEMORY_STICKERS.includes(memory.sticker as StickerName)
+        ? memory.sticker
+        : "heart",
+    section: memory.section,
+    sections: sections.length ? sections : [memory.section],
+    albumId:
+      typeof memory.albumId === "string" && memory.albumId
+        ? memory.albumId
+        : undefined,
+    media,
+  } as Memory;
+}
+
+export function normalizeMemories(value: unknown): Memory[] | null {
+  if (!Array.isArray(value) || value.length > MEMORY_LIMITS.count) {
+    return null;
+  }
+
+  const memories: Memory[] = [];
+  for (const item of value) {
+    const memory = normalizeMemory(item);
+    if (!memory) return null;
+    memories.push(memory);
+  }
+
+  return memories;
+}
+
 export function parseStoredBoard(value: string): StoredNoteBoard | null {
   try {
     const parsed: unknown = JSON.parse(value);
@@ -92,6 +180,7 @@ export function parseStoredBoard(value: string): StoredNoteBoard | null {
         version: NOTE_VERSION,
         notes,
         cover: normalizeStoredCover(board.cover),
+        memories: normalizeMemories(board.memories) ?? undefined,
       };
     }
 
