@@ -690,7 +690,7 @@ export function ScrapbookProvider({ children }: { children: ReactNode }) {
       const response = await fetch("/api/note", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ memories }),
+        body: JSON.stringify({ notes: currentState.notes, memories }),
       });
       return response.ok;
     } catch {
