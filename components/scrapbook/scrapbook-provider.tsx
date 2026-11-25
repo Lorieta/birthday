@@ -31,6 +31,26 @@ import type {
 } from "@/lib/scrapbook-types";
 
 const STORAGE_KEY = "our-digital-scrapbook:v1";
+const PENDING_KEY = "our-digital-scrapbook:pending-sync";
+
+function setPendingSync(pending: boolean) {
+  if (typeof window === "undefined") return;
+  try {
+    if (pending) window.localStorage.setItem(PENDING_KEY, "1");
+    else window.localStorage.removeItem(PENDING_KEY);
+  } catch {
+    // Storage unavailable; saves still go through normally.
+  }
+}
+
+function hasPendingSync() {
+  if (typeof window === "undefined") return false;
+  try {
+    return window.localStorage.getItem(PENDING_KEY) === "1";
+  } catch {
+    return false;
+  }
+}
 const NOTE_COLORS = new Set<NoteColor>([
   "blush",
   "sage",
@@ -365,11 +385,39 @@ function migrateCopyMemory(memory: Memory): Memory {
   };
 }
 
-function migrateOpaqueMemoryTitle(memory: Memory): Memory {
-  if (memory.media.source !== "cloudinary") return memory;
-  if (cleanCloudinaryName(memory.title) !== undefined) return memory;
+function isDerivedCloudinaryTitle(memory: Memory) {
+  const media = memory.media;
+  if (media.source !== "cloudinary" || !media.publicId) return false;
 
-  return { ...memory, title: FALLBACK_MEMORY_TITLE };
+  const title = memory.title.trim();
+  if (!title) return true;
+
+  const bareId = media.publicId.split("/").pop() ?? media.publicId;
+  return (
+    title === media.publicId ||
+    title === bareId ||
+    title === media.alt ||
+    title === cleanCloudinaryName(media.publicId) ||
+    title === cleanCloudinaryName(media.alt)
+  );
+}
+
+function isPlaceholderMemoryTitle(memory: Memory) {
+  if (!memory.title.trim()) return true;
+  if (memory.title === FALLBACK_MEMORY_TITLE) return true;
+  return isDerivedCloudinaryTitle(memory);
+}
+
+function migrateOpaqueMemoryTitle(memory: Memory): Memory {
+  if (!isDerivedCloudinaryTitle(memory)) return memory;
+
+  return {
+    ...memory,
+    title:
+      cleanCloudinaryName(memory.media.alt) ??
+      cleanCloudinaryName(memory.media.publicId) ??
+      FALLBACK_MEMORY_TITLE,
+  };
 }
 
 function normalizeAlbums(albums: Album[] | undefined): Album[] {
@@ -598,6 +646,64 @@ function updateState(updater: (current: ScrapbookState) => ScrapbookState) {
   emit();
 }
 
+let persistTimer: ReturnType<typeof setTimeout> | null = null;
+let saveSeq = 0;
+
+async function postBoard(body: string) {
+  try {
+    const response = await fetch("/api/note", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      keepalive: true,
+      body,
+    });
+    return response.ok;
+  } catch {
+    try {
+      const response = await fetch("/api/note", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body,
+      });
+      return response.ok;
+    } catch {
+      return false;
+    }
+  }
+}
+
+async function saveBoardToServer() {
+  const seq = ++saveSeq;
+  setPendingSync(true);
+
+  const ok = await postBoard(
+    JSON.stringify({
+      notes: currentState.notes,
+      cover: currentState.cover?.src ? currentState.cover : undefined,
+      memories: currentState.memories,
+    }),
+  );
+
+  if (ok && seq === saveSeq) setPendingSync(false);
+  return ok;
+}
+
+function scheduleBoardSave() {
+  setPendingSync(true);
+  if (persistTimer !== null) clearTimeout(persistTimer);
+  persistTimer = setTimeout(() => {
+    persistTimer = null;
+    void saveBoardToServer();
+  }, 300);
+}
+
+function flushBoardSave() {
+  if (persistTimer === null) return;
+  clearTimeout(persistTimer);
+  persistTimer = null;
+  void saveBoardToServer();
+}
+
 export function ScrapbookProvider({ children }: { children: ReactNode }) {
   const state = useSyncExternalStore(
     subscribe,
@@ -606,9 +712,6 @@ export function ScrapbookProvider({ children }: { children: ReactNode }) {
   );
   const noteVersion = useRef(0);
   const mediaVersion = useRef(0);
-  const memoriesPersistTimer = useRef<ReturnType<typeof setTimeout> | null>(
-    null,
-  );
 
   useEffect(() => {
     const controller = new AbortController();
@@ -617,6 +720,7 @@ export function ScrapbookProvider({ children }: { children: ReactNode }) {
     // values derived from Cloudinary metadata.
     const load = async () => {
       const noteVersionAtStart = noteVersion.current;
+      const mediaVersionAtStart = mediaVersion.current;
 
       try {
         const response = await fetch("/api/note", {
@@ -627,6 +731,7 @@ export function ScrapbookProvider({ children }: { children: ReactNode }) {
 
         if (
           noteVersionAtStart === noteVersion.current &&
+          mediaVersionAtStart === mediaVersion.current &&
           data &&
           typeof data === "object"
         ) {
@@ -640,20 +745,39 @@ export function ScrapbookProvider({ children }: { children: ReactNode }) {
           const serverMemories: Memory[] = Array.isArray(stored.memories)
             ? (stored.memories as Memory[])
             : [];
+          const keepLocal = hasPendingSync();
 
           if (notes || cover?.src || serverMemories.length) {
             updateState((current) => {
               let next = current;
-              if (notes) next = withBoardNotes(next, notes);
-              if (cover?.src) next = { ...next, cover };
+              if (!keepLocal) {
+                if (notes) next = withBoardNotes(next, notes);
+                if (cover?.src) next = { ...next, cover };
+              }
               if (serverMemories.length) {
+                const localById = new Map(
+                  current.memories.map((memory) => [memory.id, memory]),
+                );
                 const serverIds = new Set(
                   serverMemories.map((memory) => memory.id),
                 );
                 next = {
                   ...next,
                   memories: [
-                    ...serverMemories,
+                    ...serverMemories.map((serverMemory) => {
+                      const localMemory = localById.get(serverMemory.id);
+                      if (!localMemory) return serverMemory;
+                      if (keepLocal) return localMemory;
+                      // Saved data wins, but never let the placeholder
+                      // replace a title the user actually gave this memory.
+                      if (
+                        isPlaceholderMemoryTitle(serverMemory) &&
+                        !isPlaceholderMemoryTitle(localMemory)
+                      ) {
+                        return { ...serverMemory, title: localMemory.title };
+                      }
+                      return serverMemory;
+                    }),
                     ...current.memories.filter(
                       (memory) => !serverIds.has(memory.id),
                     ),
@@ -668,9 +792,10 @@ export function ScrapbookProvider({ children }: { children: ReactNode }) {
         // Aborted or offline; keep the current local state.
       }
 
-      if (controller.signal.aborted) return;
+      // Unsaved local edits survived a reload: send them up now.
+      if (hasPendingSync()) void saveBoardToServer();
 
-      const mediaVersionAtStart = mediaVersion.current;
+      if (controller.signal.aborted) return;
 
       try {
         const response = await fetch("/api/cloudinary-media", {
@@ -700,41 +825,21 @@ export function ScrapbookProvider({ children }: { children: ReactNode }) {
     return () => controller.abort();
   }, []);
 
-  useEffect(
-    () => () => {
-      if (memoriesPersistTimer.current !== null) {
-        clearTimeout(memoriesPersistTimer.current);
-        memoriesPersistTimer.current = null;
-      }
-    },
-    [],
-  );
+  useEffect(() => {
+    const flush = () => flushBoardSave();
+    const onVisibility = () => {
+      if (document.visibilityState === "hidden") flushBoardSave();
+    };
 
-  const persistMemories = useCallback(async (memories: Memory[]) => {
-    try {
-      const response = await fetch("/api/note", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ notes: currentState.notes, memories }),
-      });
-      return response.ok;
-    } catch {
-      return false;
-    }
+    window.addEventListener("pagehide", flush);
+    document.addEventListener("visibilitychange", onVisibility);
+
+    return () => {
+      window.removeEventListener("pagehide", flush);
+      document.removeEventListener("visibilitychange", onVisibility);
+      flushBoardSave();
+    };
   }, []);
-
-  const persistMemoriesDebounced = useCallback(
-    (memories: Memory[]) => {
-      if (memoriesPersistTimer.current !== null) {
-        clearTimeout(memoriesPersistTimer.current);
-      }
-      memoriesPersistTimer.current = setTimeout(() => {
-        memoriesPersistTimer.current = null;
-        void persistMemories(memories);
-      }, 300);
-    },
-    [persistMemories],
-  );
 
   const addMemory = useCallback((memory: NewMemory) => {
     mediaVersion.current += 1;
@@ -748,10 +853,10 @@ export function ScrapbookProvider({ children }: { children: ReactNode }) {
       ...current,
       memories: [created, ...current.memories],
     }));
-    persistMemoriesDebounced(currentState.memories);
+    scheduleBoardSave();
 
     return created;
-  }, [persistMemoriesDebounced]);
+  }, []);
 
   const updateMemory = useCallback((id: string, memory: NewMemory) => {
     mediaVersion.current += 1;
@@ -775,8 +880,8 @@ export function ScrapbookProvider({ children }: { children: ReactNode }) {
         ? withCloudinaryDeleted(next, replacedPublicId)
         : next;
     });
-    persistMemoriesDebounced(currentState.memories);
-  }, [persistMemoriesDebounced]);
+    scheduleBoardSave();
+  }, []);
 
   const deleteMemory = useCallback((id: string) => {
     mediaVersion.current += 1;
@@ -792,8 +897,8 @@ export function ScrapbookProvider({ children }: { children: ReactNode }) {
         ? withCloudinaryDeleted(next, deleted.media.publicId)
         : next;
     });
-    persistMemoriesDebounced(currentState.memories);
-  }, [persistMemoriesDebounced]);
+    scheduleBoardSave();
+  }, []);
 
   const addAlbum = useCallback((name: string) => {
     const trimmed = name.trim();
@@ -835,25 +940,8 @@ export function ScrapbookProvider({ children }: { children: ReactNode }) {
   const persistNoteBoard = useCallback(
     async (updater?: (state: ScrapbookState) => ScrapbookState) => {
       noteVersion.current += 1;
-      const next = updater ? updater(currentState) : currentState;
-      if (updater) updateState(() => next);
-
-      const cover = next.cover?.src ? next.cover : undefined;
-
-      try {
-        const response = await fetch("/api/note", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            notes: next.notes,
-            cover,
-            memories: next.memories,
-          }),
-        });
-        return response.ok;
-      } catch {
-        return false;
-      }
+      if (updater) updateState(updater);
+      return saveBoardToServer();
     },
     [],
   );
