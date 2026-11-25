@@ -3,6 +3,7 @@
 import { Album, NotebookPen, Quote } from "lucide-react";
 import { HeartDoodle } from "@/components/scrapbook/decorative";
 import { useScrapbook } from "@/components/scrapbook/scrapbook-provider";
+import { isActiveNote } from "@/lib/scrapbook-normalize";
 import { cn } from "@/lib/utils";
 
 function StatCard({
@@ -49,13 +50,14 @@ function StatCard({
 
 export function Stats() {
   const { state } = useScrapbook();
+  const activeNotesCount = state.notes.filter(isActiveNote).length;
 
   return (
     <section className="grid grid-cols-2 gap-2 sm:gap-3 lg:grid-cols-3">
       <StatCard
         tone="sage"
         icon={<NotebookPen className="size-5" />}
-        value={state.notes.length}
+        value={activeNotesCount}
         label="Notes"
       />
       <StatCard

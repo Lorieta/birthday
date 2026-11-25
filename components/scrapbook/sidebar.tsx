@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { Drawer } from "@base-ui/react/drawer";
 import {
+  Archive,
   CalendarDays,
   Heart,
   Home,
@@ -18,6 +19,8 @@ import {
   HeartDoodle,
   MatchaMark,
 } from "@/components/scrapbook/decorative";
+import { useScrapbook } from "@/components/scrapbook/scrapbook-provider";
+import { isArchivedMemory, isArchivedNote } from "@/lib/scrapbook-normalize";
 import { cn } from "@/lib/utils";
 
 const navItems = [
@@ -31,10 +34,14 @@ const navItems = [
 function SidebarContent({
   activeSection,
   onAdd,
+  onOpenArchive,
+  archivedCount,
   onNavigate,
 }: {
   activeSection: string;
   onAdd: () => void;
+  onOpenArchive?: () => void;
+  archivedCount: number;
   onNavigate?: () => void;
 }) {
   return (
@@ -99,6 +106,23 @@ function SidebarContent({
         Add a memory
       </Button>
 
+      {onOpenArchive ? (
+        <Button
+          type="button"
+          variant="outline"
+          onClick={onOpenArchive}
+          className="mt-2 h-9 gap-2 rounded-full border-rose/25 px-4 text-xs text-ink-soft hover:text-rose-deep"
+        >
+          <Archive className="size-3.5" />
+          Archive
+          {archivedCount > 0 ? (
+            <span className="ml-auto rounded-full bg-blush-soft px-2 py-0.5 text-[0.65rem] text-rose-deep">
+              {archivedCount}
+            </span>
+          ) : null}
+        </Button>
+      ) : null}
+
       <div className="mt-auto pt-8">
         <div className="relative rounded-2xl border border-[rgba(107,69,60,0.1)] bg-blush-soft/35 px-3 py-4 text-center">
           <p className="font-hand text-[1.7rem] leading-tight text-ink">
@@ -127,11 +151,17 @@ function SidebarContent({
 export function Sidebar({
   activeSection,
   onAdd,
+  onOpenArchive,
 }: {
   activeSection: string;
   onAdd: () => void;
+  onOpenArchive?: () => void;
 }) {
+  const { state } = useScrapbook();
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const archivedCount =
+    state.notes.filter(isArchivedNote).length +
+    state.memories.filter(isArchivedMemory).length;
 
   useEffect(() => {
     const desktop = window.matchMedia("(min-width: 1024px)");
@@ -188,10 +218,19 @@ export function Sidebar({
                 </div>
                 <SidebarContent
                   activeSection={activeSection}
+                  archivedCount={archivedCount}
                   onAdd={() => {
                     setDrawerOpen(false);
                     onAdd();
                   }}
+                  onOpenArchive={
+                    onOpenArchive
+                      ? () => {
+                          setDrawerOpen(false);
+                          onOpenArchive();
+                        }
+                      : undefined
+                  }
                   onNavigate={() => setDrawerOpen(false)}
                 />
               </Drawer.Content>
@@ -202,7 +241,12 @@ export function Sidebar({
 
       <aside className="sticky top-6 hidden h-[calc(100vh-3rem)] w-[250px] shrink-0 self-start lg:block">
         <div className="paper-card flex h-full flex-col overflow-y-auto p-5">
-          <SidebarContent activeSection={activeSection} onAdd={onAdd} />
+          <SidebarContent
+            activeSection={activeSection}
+            archivedCount={archivedCount}
+            onAdd={onAdd}
+            onOpenArchive={onOpenArchive}
+          />
         </div>
       </aside>
     </>

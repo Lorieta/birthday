@@ -1,6 +1,6 @@
 "use client";
 
-import { ExternalLink, Pencil, Trash2 } from "lucide-react";
+import { Archive, ExternalLink, Pencil, Trash2 } from "lucide-react";
 import { Button, buttonVariants } from "@/components/ui/button";
 import {
   Dialog,
@@ -21,12 +21,14 @@ export function MediaViewer({
   onOpenChange,
   memory,
   onEdit,
+  onArchive,
   onDelete,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   memory: Memory | null;
   onEdit: (memory: Memory) => void;
+  onArchive: (memory: Memory) => void;
   onDelete: (memory: Memory) => void;
 }) {
   const { state } = useScrapbook();
@@ -102,6 +104,19 @@ export function MediaViewer({
             >
               <Pencil className="size-3.5" />
               Edit
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                onOpenChange(false);
+                onArchive(memory);
+              }}
+              className="rounded-full"
+            >
+              <Archive className="size-3.5" />
+              Archive
             </Button>
             <Button
               type="button"

@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { About } from "@/components/scrapbook/about";
 import { AddMemoryDialog } from "@/components/scrapbook/add-memory-dialog";
+import { ArchiveDialog } from "@/components/scrapbook/archive-dialog";
 import { CoverDialog } from "@/components/scrapbook/cover-dialog";
 import { DeleteMemoryDialog } from "@/components/scrapbook/delete-dialog";
 import { HeartDoodle } from "@/components/scrapbook/decorative";
@@ -16,13 +17,20 @@ import { Sidebar } from "@/components/scrapbook/sidebar";
 import { Stats } from "@/components/scrapbook/stats";
 import { Timeline } from "@/components/scrapbook/timeline";
 import { useScrapbook } from "@/components/scrapbook/scrapbook-provider";
+import { isActiveMemory } from "@/lib/scrapbook-normalize";
 import type { Memory, NewMemory } from "@/lib/scrapbook-types";
 
 const sectionIds = ["home", "timeline", "gallery", "notes", "about"];
 
 export function ScrapbookHome() {
-  const { state, addMemory, updateMemory, deleteMemory, setCover } =
-    useScrapbook();
+  const {
+    state,
+    addMemory,
+    updateMemory,
+    archiveMemory,
+    deleteMemory,
+    setCover,
+  } = useScrapbook();
 
   const [activeSection, setActiveSection] = useState("home");
   const [addOpen, setAddOpen] = useState(false);
@@ -32,6 +40,8 @@ export function ScrapbookHome() {
   const [coverOpen, setCoverOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<Memory | null>(null);
+  const [archiveOpen, setArchiveOpen] = useState(false);
+  const [archiveTab, setArchiveTab] = useState<"memories" | "notes">("memories");
 
   useEffect(() => {
     const observer = new IntersectionObserver(
@@ -73,29 +83,47 @@ export function ScrapbookHome() {
     setDeleteOpen(true);
   };
 
-  const handleSubmit = (memory: NewMemory, id?: string) => {
-    if (id) {
-      updateMemory(id, memory);
-      toast.success("Memory updated");
-    } else {
-      addMemory(memory);
-      toast.success("A new memory, saved");
-    }
-    setEditingMemory(null);
+  const openArchive = (tab: "memories" | "notes" = "memories") => {
+    setArchiveTab(tab);
+    setArchiveOpen(true);
   };
 
-  const handleDelete = (memory: Memory) => {
-    deleteMemory(memory.id);
+  const handleSubmit = async (memory: NewMemory, id?: string) => {
+    setEditingMemory(null);
+    const saved = id
+      ? await updateMemory(id, memory)
+      : await addMemory(memory);
+    if (saved) {
+      toast.success(id ? "Memory updated" : "A new memory, saved");
+    } else {
+      toast.error("Saved on this browser only — could not sync to DB");
+    }
+  };
+
+  const handleArchive = async (memory: Memory) => {
     if (selectedMemory?.id === memory.id) {
       setSelectedMemory(null);
       setViewerOpen(false);
     }
-    toast.success("Memory removed");
+    const saved = await archiveMemory(memory.id);
+    if (saved) toast.success("Memory archived");
+    else toast.error("Archived on this browser only — could not sync to DB");
+  };
+
+  const handleDelete = async (memory: Memory) => {
+    if (selectedMemory?.id === memory.id) {
+      setSelectedMemory(null);
+      setViewerOpen(false);
+    }
+    const saved = await deleteMemory(memory.id);
+    if (saved) toast.success("Memory removed");
+    else toast.error("Removed on this browser only — could not sync to DB");
   };
 
   const latestMedia =
-    [...state.memories].sort((a, b) => b.date.localeCompare(a.date))[0]?.media ??
-    state.cover;
+    state.memories
+      .filter(isActiveMemory)
+      .sort((a, b) => b.date.localeCompare(a.date))[0]?.media ?? state.cover;
 
   return (
     <div className="relative min-h-screen overflow-x-hidden">
@@ -110,7 +138,11 @@ export function ScrapbookHome() {
       </div>
 
       <div className="relative z-10 mx-auto grid w-full max-w-[1540px] grid-cols-1 gap-5 px-3 py-4 sm:px-5 lg:grid-cols-[250px_minmax(0,1fr)] lg:gap-6 lg:px-6">
-        <Sidebar activeSection={activeSection} onAdd={openAdd} />
+        <Sidebar
+          activeSection={activeSection}
+          onAdd={openAdd}
+          onOpenArchive={() => openArchive("memories")}
+        />
 
         <main className="min-w-0 space-y-8 pb-10 sm:space-y-9">
           <Hero
@@ -125,6 +157,7 @@ export function ScrapbookHome() {
             onAdd={openAdd}
             onEdit={openEdit}
             onView={openViewer}
+            onArchive={handleArchive}
             onDelete={openDelete}
           />
 
@@ -132,14 +165,16 @@ export function ScrapbookHome() {
             onAdd={openAdd}
             onEdit={openEdit}
             onView={openViewer}
+            onArchive={handleArchive}
             onDelete={openDelete}
+            onOpenArchive={() => openArchive("memories")}
           />
 
           <section
             id="notes"
             className="grid scroll-mt-8 items-center gap-5 lg:grid-cols-[1.15fr_0.85fr] lg:gap-6"
           >
-            <NoteBoard />
+            <NoteBoard onOpenArchive={() => openArchive("notes")} />
             <Polaroid media={latestMedia} />
           </section>
 
@@ -186,6 +221,7 @@ export function ScrapbookHome() {
         onOpenChange={setViewerOpen}
         memory={selectedMemory}
         onEdit={openEdit}
+        onArchive={handleArchive}
         onDelete={openDelete}
       />
 
@@ -193,8 +229,17 @@ export function ScrapbookHome() {
         open={deleteOpen}
         onOpenChange={setDeleteOpen}
         memory={deleteTarget}
+        onArchive={handleArchive}
         onConfirm={handleDelete}
       />
+
+      {archiveOpen ? (
+        <ArchiveDialog
+          open={archiveOpen}
+          onOpenChange={setArchiveOpen}
+          initialTab={archiveTab}
+        />
+      ) : null}
     </div>
   );
 }

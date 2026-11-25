@@ -13,7 +13,13 @@ import {
 import { cleanCloudinaryName } from "@/lib/cloudinary-asset";
 import { normalizeMediaAsset } from "@/lib/media";
 import {
-  GALLERY_SEED_ALBUMS,
+  normalizeAlbums,
+  normalizeBoardNotes,
+  normalizeDeletedIds,
+  normalizeMemories,
+  normalizeMemory,
+} from "@/lib/scrapbook-normalize";
+import {
   TIMELINE_ALBUM,
   defaultBoardNote,
   defaultScrapbook,
@@ -26,12 +32,12 @@ import type {
   Memory,
   NewBoardNote,
   NewMemory,
-  NoteColor,
   ScrapbookState,
 } from "@/lib/scrapbook-types";
 
 const STORAGE_KEY = "our-digital-scrapbook:v1";
 const PENDING_KEY = "our-digital-scrapbook:pending-sync";
+const KEEPALIVE_MAX_BYTES = 60_000;
 
 function setPendingSync(pending: boolean) {
   if (typeof window === "undefined") return;
@@ -51,12 +57,7 @@ function hasPendingSync() {
     return false;
   }
 }
-const NOTE_COLORS = new Set<NoteColor>([
-  "blush",
-  "sage",
-  "butter",
-  "lavender",
-]);
+
 const OLD_COVER = "/scrapbook/cover-sunset.svg";
 const OLD_SEED_IDS = new Set([
   "timeline-first-date",
@@ -74,7 +75,8 @@ const OLD_SEED_IDS = new Set([
   "gallery-heart-hands",
 ]);
 
-const OLD_NOTE = "Thank you for being here...\nfor the laughs, the dates,\nthe random chats, and\neverything in between.\n\nI hope we keep making\nmore memories together.\n\nI love you.";
+const OLD_NOTE =
+  "Thank you for being here...\nfor the laughs, the dates,\nthe random chats, and\neverything in between.\n\nI hope we keep making\nmore memories together.\n\nI love you.";
 const OLD_PHOTO_ALT = "A scrapbook photo of the couple";
 const OLD_VIDEO_ALT = "A scrapbook video of the couple";
 const FALLBACK_MEMORY_TITLE = "A little memory";
@@ -125,15 +127,19 @@ const defaultMemoryById = new Map(
 
 interface ScrapbookContextValue {
   state: ScrapbookState;
-  addMemory: (memory: NewMemory) => Memory;
-  updateMemory: (id: string, memory: NewMemory) => void;
-  deleteMemory: (id: string) => void;
+  addMemory: (memory: NewMemory) => Promise<boolean>;
+  updateMemory: (id: string, memory: NewMemory) => Promise<boolean>;
+  archiveMemory: (id: string) => Promise<boolean>;
+  restoreMemory: (id: string) => Promise<boolean>;
+  deleteMemory: (id: string) => Promise<boolean>;
   addAlbum: (name: string) => Album | null;
   renameAlbum: (id: string, name: string) => void;
   deleteAlbum: (id: string) => void;
   setCover: (cover: MediaAsset) => Promise<boolean>;
   addBoardNote: (note: NewBoardNote) => Promise<boolean>;
   updateBoardNote: (id: string, note: NewBoardNote) => Promise<boolean>;
+  archiveBoardNote: (id: string) => Promise<boolean>;
+  restoreBoardNote: (id: string) => Promise<boolean>;
   deleteBoardNote: (id: string) => Promise<boolean>;
   setSince: (since: string) => void;
 }
@@ -146,43 +152,6 @@ function generateId() {
   }
 
   return `memory-${Date.now()}-${Math.random().toString(16).slice(2)}`;
-}
-
-function normalizeBoardNote(value: unknown): BoardNote | null {
-  if (!value || typeof value !== "object") return null;
-
-  const note = value as Partial<BoardNote>;
-  if (
-    typeof note.id !== "string" ||
-    !note.id ||
-    typeof note.title !== "string" ||
-    typeof note.text !== "string" ||
-    typeof note.signature !== "string" ||
-    !NOTE_COLORS.has(note.color as NoteColor)
-  ) {
-    return null;
-  }
-
-  return {
-    id: note.id,
-    title: note.title,
-    text: note.text,
-    signature: note.signature,
-    color: note.color as NoteColor,
-  };
-}
-
-function normalizeBoardNotes(value: unknown): BoardNote[] | null {
-  if (!Array.isArray(value)) return null;
-
-  const notes: BoardNote[] = [];
-  for (const item of value) {
-    const note = normalizeBoardNote(item);
-    if (!note) return null;
-    notes.push(note);
-  }
-
-  return notes;
 }
 
 function legacyBoardNote(text: string, signature: string): BoardNote {
@@ -198,11 +167,12 @@ function withBoardNotes(
   state: ScrapbookState,
   notes: BoardNote[],
 ): ScrapbookState {
+  const firstActive = notes.find((note) => !note.archivedAt);
   return {
     ...state,
     notes,
-    note: notes[0]?.text ?? "",
-    signature: notes[0]?.signature ?? "",
+    note: firstActive?.text ?? "",
+    signature: firstActive?.signature ?? "",
   };
 }
 
@@ -253,6 +223,11 @@ function withCloudinaryDeleted(state: ScrapbookState, publicId: string) {
   };
 }
 
+function isPublicIdStillReferenced(state: ScrapbookState, publicId: string) {
+  if (state.cover.publicId === publicId) return true;
+  return state.memories.some((memory) => memory.media.publicId === publicId);
+}
+
 function mergeCloudinaryMedia(
   state: ScrapbookState,
   items: SyncedCloudinaryMedia[],
@@ -298,46 +273,6 @@ function mergeCloudinaryMedia(
 
 function normalizeMedia(value: unknown, fallback: MediaAsset): MediaAsset {
   return normalizeMediaAsset(value) ?? fallback;
-}
-
-function normalizeMemory(value: unknown): Memory | null {
-  if (!value || typeof value !== "object") return null;
-
-  const memory = value as Partial<Memory>;
-
-  if (
-    typeof memory.id !== "string" ||
-    typeof memory.title !== "string" ||
-    typeof memory.date !== "string" ||
-    typeof memory.caption !== "string" ||
-    (memory.section !== "timeline" && memory.section !== "gallery")
-  ) {
-    return null;
-  }
-
-  const albumId =
-    typeof memory.albumId === "string" && memory.albumId ? memory.albumId : undefined;
-  const sections = Array.isArray(memory.sections)
-    ? memory.sections.filter(
-        (section): section is "timeline" | "gallery" =>
-          section === "timeline" || section === "gallery",
-      )
-    : [];
-
-  return {
-    id: memory.id,
-    title: memory.title,
-    date: memory.date,
-    caption: memory.caption,
-    sticker: typeof memory.sticker === "string" ? memory.sticker : "heart",
-    section: memory.section,
-    sections: sections.length ? sections : [memory.section],
-    albumId,
-    media: normalizeMedia(
-      memory.media,
-      defaultScrapbook.memories[0]?.media ?? defaultScrapbook.cover,
-    ),
-  } as Memory;
 }
 
 function isOldSeedMemory(memory: Memory) {
@@ -420,29 +355,6 @@ function migrateOpaqueMemoryTitle(memory: Memory): Memory {
   };
 }
 
-function normalizeAlbums(albums: Album[] | undefined): Album[] {
-  const base = [TIMELINE_ALBUM, ...GALLERY_SEED_ALBUMS];
-  const byId = new Map<string, Album>();
-
-  for (const album of base) byId.set(album.id, album);
-
-  for (const raw of albums ?? []) {
-    if (!raw || typeof raw !== "object") continue;
-    const a = raw as Partial<Album>;
-    if (typeof a.id !== "string" || typeof a.name !== "string") continue;
-    if (a.section !== "timeline" && a.section !== "gallery") continue;
-    if (byId.has(a.id)) continue; // keep stable seeded defaults
-    byId.set(a.id, {
-      id: a.id,
-      name: a.name,
-      section: a.section,
-      createdAt: typeof a.createdAt === "string" ? a.createdAt : undefined,
-    });
-  }
-
-  return [...byId.values()];
-}
-
 function isLegacyGalleryAlbumId(albumId: string | undefined) {
   return (
     !albumId ||
@@ -463,28 +375,18 @@ function migrateAlbumsAndMemoryLinks(state: ScrapbookState): ScrapbookState {
       return { ...memory, albumId: TIMELINE_ALBUM.id };
     }
 
-    // gallery
-    if (memory.albumId && albumIds.has(memory.albumId) && !isLegacyGalleryAlbumId(memory.albumId)) {
+    if (
+      memory.albumId &&
+      albumIds.has(memory.albumId) &&
+      !isLegacyGalleryAlbumId(memory.albumId)
+    ) {
       return memory;
     }
 
-    if (memory.albumId && albumIds.has(memory.albumId) && !isLegacyGalleryAlbumId(memory.albumId)) {
-      return memory;
-    }
-
-    // legacy/missing -> deterministic seeded album (idempotent)
-    if (isLegacyGalleryAlbumId(memory.albumId) || !memory.albumId || !albumIds.has(memory.albumId)) {
-      // if user-assigned to a non-seeded custom album that still exists, keep it
-      if (memory.albumId && albumIds.has(memory.albumId) && !isLegacyGalleryAlbumId(memory.albumId)) {
-        return memory;
-      }
-      const nextAlbumId = seededGalleryAlbumId(memory.id);
-      if (memory.albumId === nextAlbumId) return memory;
-      changed = true;
-      return { ...memory, albumId: nextAlbumId };
-    }
-
-    return memory;
+    const nextAlbumId = seededGalleryAlbumId(memory.id);
+    if (memory.albumId === nextAlbumId) return memory;
+    changed = true;
+    return { ...memory, albumId: nextAlbumId };
   });
 
   if (!changed) return state;
@@ -551,8 +453,6 @@ function normalizeState(value: unknown): ScrapbookState {
     .map(normalizeMemory)
     .filter((memory): memory is Memory => Boolean(memory));
 
-  // albums normalized/migrated in migrateState
-
   const legacyNote =
     typeof state.note === "string" ? state.note : defaultScrapbook.note;
   const legacySignature =
@@ -577,13 +477,8 @@ function normalizeState(value: unknown): ScrapbookState {
         signature: "",
         notes: migratedNotes,
         memories: memories.length ? memories : defaultScrapbook.memories,
-        deletedCloudinaryPublicIds: Array.isArray(
-          state.deletedCloudinaryPublicIds,
-        )
-          ? state.deletedCloudinaryPublicIds.filter(
-              (id): id is string => typeof id === "string",
-            )
-          : [],
+        deletedCloudinaryPublicIds:
+          normalizeDeletedIds(state.deletedCloudinaryPublicIds) ?? [],
         albums: normalizeAlbums(state.albums),
       },
       migratedNotes,
@@ -640,7 +535,7 @@ function updateState(updater: (current: ScrapbookState) => ScrapbookState) {
   try {
     window.localStorage.setItem(STORAGE_KEY, JSON.stringify(currentState));
   } catch {
-    return;
+    // Even if localStorage quota is exceeded, still notify UI listeners.
   }
 
   emit();
@@ -648,17 +543,34 @@ function updateState(updater: (current: ScrapbookState) => ScrapbookState) {
 
 let persistTimer: ReturnType<typeof setTimeout> | null = null;
 let saveSeq = 0;
+let activeSave: Promise<boolean> | null = null;
+let queuedSave = false;
 
-async function postBoard(body: string) {
+function buildBoardPayload() {
+  return JSON.stringify({
+    notes: currentState.notes,
+    cover: currentState.cover?.src ? currentState.cover : null,
+    memories: currentState.memories,
+    deletedCloudinaryPublicIds: currentState.deletedCloudinaryPublicIds,
+    albums: currentState.albums,
+    since: currentState.since,
+  });
+}
+
+async function postBoard(body: string, options?: { keepalive?: boolean }) {
+  const useKeepalive =
+    Boolean(options?.keepalive) && body.length < KEEPALIVE_MAX_BYTES;
+
   try {
     const response = await fetch("/api/note", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      keepalive: true,
+      ...(useKeepalive ? { keepalive: true } : {}),
       body,
     });
     return response.ok;
   } catch {
+    if (!useKeepalive) return false;
     try {
       const response = await fetch("/api/note", {
         method: "POST",
@@ -672,20 +584,38 @@ async function postBoard(body: string) {
   }
 }
 
-async function saveBoardToServer() {
-  const seq = ++saveSeq;
+async function saveBoardToServer(options?: {
+  keepalive?: boolean;
+}): Promise<boolean> {
+  if (persistTimer !== null) {
+    clearTimeout(persistTimer);
+    persistTimer = null;
+  }
+
   setPendingSync(true);
 
-  const ok = await postBoard(
-    JSON.stringify({
-      notes: currentState.notes,
-      cover: currentState.cover?.src ? currentState.cover : undefined,
-      memories: currentState.memories,
-    }),
-  );
+  if (activeSave) {
+    queuedSave = true;
+    return activeSave;
+  }
 
-  if (ok && seq === saveSeq) setPendingSync(false);
-  return ok;
+  activeSave = (async () => {
+    let lastOk = false;
+    do {
+      queuedSave = false;
+      const seq = ++saveSeq;
+      const body = buildBoardPayload();
+      lastOk = await postBoard(body, options);
+      if (lastOk && seq === saveSeq && !queuedSave) {
+        setPendingSync(false);
+      }
+    } while (queuedSave);
+    return lastOk;
+  })().finally(() => {
+    activeSave = null;
+  });
+
+  return activeSave;
 }
 
 function scheduleBoardSave() {
@@ -701,7 +631,22 @@ function flushBoardSave() {
   if (persistTimer === null) return;
   clearTimeout(persistTimer);
   persistTimer = null;
-  void saveBoardToServer();
+  void saveBoardToServer({ keepalive: true });
+}
+
+async function destroyCloudinaryAsset(
+  publicId: string,
+  resourceType: "image" | "video",
+) {
+  try {
+    await fetch("/api/cloudinary-media", {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ publicId, resourceType }),
+    });
+  } catch {
+    // Deleted publicId is still persisted in DB so it stays hidden.
+  }
 }
 
 export function ScrapbookProvider({ children }: { children: ReactNode }) {
@@ -716,8 +661,6 @@ export function ScrapbookProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     const controller = new AbortController();
 
-    // Load persisted (user-authored) data first so it takes priority over
-    // values derived from Cloudinary metadata.
     const load = async () => {
       const noteVersionAtStart = noteVersion.current;
       const mediaVersionAtStart = mediaVersion.current;
@@ -739,38 +682,59 @@ export function ScrapbookProvider({ children }: { children: ReactNode }) {
             notes?: unknown;
             cover?: unknown;
             memories?: unknown;
+            deletedCloudinaryPublicIds?: unknown;
+            albums?: unknown;
+            since?: unknown;
           };
           const notes = normalizeBoardNotes(stored.notes);
           const cover = normalizeMediaAsset(stored.cover);
-          const serverMemories: Memory[] = Array.isArray(stored.memories)
-            ? (stored.memories as Memory[])
-            : [];
+          const serverMemories = Array.isArray(stored.memories)
+            ? normalizeMemories(stored.memories)
+            : null;
+          const serverDeletedIds = normalizeDeletedIds(
+            stored.deletedCloudinaryPublicIds,
+          );
+          const serverAlbums = Array.isArray(stored.albums)
+            ? normalizeAlbums(stored.albums)
+            : null;
+          const serverSince =
+            typeof stored.since === "string" && stored.since
+              ? stored.since
+              : undefined;
           const keepLocal = hasPendingSync();
 
-          if (notes || cover?.src || serverMemories.length) {
+          if (
+            notes ||
+            cover?.src ||
+            serverMemories !== null ||
+            serverDeletedIds !== null ||
+            serverAlbums !== null ||
+            serverSince
+          ) {
             updateState((current) => {
               let next = current;
+
               if (!keepLocal) {
                 if (notes) next = withBoardNotes(next, notes);
                 if (cover?.src) next = { ...next, cover };
-              }
-              if (serverMemories.length) {
-                const localById = new Map(
-                  current.memories.map((memory) => [memory.id, memory]),
-                );
-                const serverIds = new Set(
-                  serverMemories.map((memory) => memory.id),
-                );
-                next = {
-                  ...next,
-                  memories: [
-                    ...serverMemories.map((serverMemory) => {
+                if (serverAlbums) next = { ...next, albums: serverAlbums };
+                if (serverSince) next = { ...next, since: serverSince };
+                if (serverDeletedIds !== null) {
+                  next = {
+                    ...next,
+                    deletedCloudinaryPublicIds: serverDeletedIds,
+                  };
+                }
+                if (serverMemories !== null) {
+                  const localById = new Map(
+                    current.memories.map((memory) => [memory.id, memory]),
+                  );
+                  next = {
+                    ...next,
+                    memories: serverMemories.map((serverMemory) => {
                       const localMemory = localById.get(serverMemory.id);
-                      if (!localMemory) return serverMemory;
-                      if (keepLocal) return localMemory;
-                      // Saved data wins, but never let the placeholder
-                      // replace a title the user actually gave this memory.
                       if (
+                        localMemory &&
                         isPlaceholderMemoryTitle(serverMemory) &&
                         !isPlaceholderMemoryTitle(localMemory)
                       ) {
@@ -778,12 +742,38 @@ export function ScrapbookProvider({ children }: { children: ReactNode }) {
                       }
                       return serverMemory;
                     }),
-                    ...current.memories.filter(
-                      (memory) => !serverIds.has(memory.id),
-                    ),
-                  ],
-                };
+                  };
+                }
+              } else {
+                const deletedSet = new Set([
+                  ...current.deletedCloudinaryPublicIds,
+                  ...(serverDeletedIds ?? []),
+                ]);
+                if (serverDeletedIds?.length) {
+                  next = {
+                    ...next,
+                    deletedCloudinaryPublicIds: [...deletedSet],
+                  };
+                }
+                if (serverMemories?.length) {
+                  const localIds = new Set(
+                    current.memories.map((memory) => memory.id),
+                  );
+                  const missingFromLocal = serverMemories.filter(
+                    (memory) =>
+                      !localIds.has(memory.id) &&
+                      (!memory.media.publicId ||
+                        !deletedSet.has(memory.media.publicId)),
+                  );
+                  if (missingFromLocal.length) {
+                    next = {
+                      ...next,
+                      memories: [...current.memories, ...missingFromLocal],
+                    };
+                  }
+                }
               }
+
               return next;
             });
           }
@@ -792,7 +782,6 @@ export function ScrapbookProvider({ children }: { children: ReactNode }) {
         // Aborted or offline; keep the current local state.
       }
 
-      // Unsaved local edits survived a reload: send them up now.
       if (hasPendingSync()) void saveBoardToServer();
 
       if (controller.signal.aborted) return;
@@ -841,7 +830,7 @@ export function ScrapbookProvider({ children }: { children: ReactNode }) {
     };
   }, []);
 
-  const addMemory = useCallback((memory: NewMemory) => {
+  const addMemory = useCallback(async (memory: NewMemory) => {
     mediaVersion.current += 1;
     const created: Memory = {
       ...memory,
@@ -853,54 +842,104 @@ export function ScrapbookProvider({ children }: { children: ReactNode }) {
       ...current,
       memories: [created, ...current.memories],
     }));
-    scheduleBoardSave();
 
-    return created;
+    return saveBoardToServer();
   }, []);
 
-  const updateMemory = useCallback((id: string, memory: NewMemory) => {
+  const updateMemory = useCallback(async (id: string, memory: NewMemory) => {
     mediaVersion.current += 1;
 
     updateState((current) => {
       const existing = current.memories.find((item) => item.id === id);
+      const nextMemories = current.memories.map((item) =>
+        item.id === id ? { ...item, ...memory } : item,
+      );
+      const next: ScrapbookState = {
+        ...current,
+        memories: nextMemories,
+      };
       const replacedPublicId =
         existing?.media.source === "cloudinary" &&
-        existing.media.publicId !== memory.media.publicId
+        existing.media.publicId &&
+        existing.media.publicId !== memory.media.publicId &&
+        !isPublicIdStillReferenced(next, existing.media.publicId)
           ? existing.media.publicId
           : undefined;
-
-      const next = {
-        ...current,
-        memories: current.memories.map((item) =>
-          item.id === id ? { ...item, ...memory } : item,
-        ),
-      };
 
       return replacedPublicId
         ? withCloudinaryDeleted(next, replacedPublicId)
         : next;
     });
-    scheduleBoardSave();
+
+    return saveBoardToServer();
   }, []);
 
-  const deleteMemory = useCallback((id: string) => {
+  const archiveMemory = useCallback(async (id: string) => {
+    mediaVersion.current += 1;
+    const archivedAt = new Date().toISOString();
+
+    updateState((current) => ({
+      ...current,
+      memories: current.memories.map((item) =>
+        item.id === id ? { ...item, archivedAt } : item,
+      ),
+    }));
+
+    return saveBoardToServer();
+  }, []);
+
+  const restoreMemory = useCallback(async (id: string) => {
     mediaVersion.current += 1;
 
+    updateState((current) => ({
+      ...current,
+      memories: current.memories.map((item) =>
+        item.id === id ? { ...item, archivedAt: undefined } : item,
+      ),
+    }));
+
+    return saveBoardToServer();
+  }, []);
+
+  const deleteMemory = useCallback(async (id: string) => {
+    mediaVersion.current += 1;
+    const deleted = currentState.memories.find((item) => item.id === id);
+    let shouldDestroyCloudinary = false;
+
     updateState((current) => {
-      const deleted = current.memories.find((item) => item.id === id);
-      const next = {
+      const target = current.memories.find((item) => item.id === id);
+      const next: ScrapbookState = {
         ...current,
         memories: current.memories.filter((item) => item.id !== id),
       };
 
-      return deleted?.media.source === "cloudinary" && deleted.media.publicId
-        ? withCloudinaryDeleted(next, deleted.media.publicId)
-        : next;
+      if (
+        target?.media.source === "cloudinary" &&
+        target.media.publicId &&
+        !isPublicIdStillReferenced(next, target.media.publicId)
+      ) {
+        shouldDestroyCloudinary = true;
+        return withCloudinaryDeleted(next, target.media.publicId);
+      }
+
+      return next;
     });
-    scheduleBoardSave();
+
+    const saved = await saveBoardToServer();
+
+    if (
+      shouldDestroyCloudinary &&
+      deleted?.media.source === "cloudinary" &&
+      deleted.media.publicId
+    ) {
+      void destroyCloudinaryAsset(deleted.media.publicId, deleted.media.kind);
+    }
+
+    return saved;
   }, []);
 
   const addAlbum = useCallback((name: string) => {
+    mediaVersion.current += 1;
     const trimmed = name.trim();
     if (!trimmed) return null;
     const created: Album = {
@@ -913,10 +952,12 @@ export function ScrapbookProvider({ children }: { children: ReactNode }) {
       ...current,
       albums: [...current.albums, created],
     }));
+    void saveBoardToServer();
     return created;
   }, []);
 
   const renameAlbum = useCallback((id: string, name: string) => {
+    mediaVersion.current += 1;
     const trimmed = name.trim();
     if (!trimmed) return;
     updateState((current) => ({
@@ -925,9 +966,11 @@ export function ScrapbookProvider({ children }: { children: ReactNode }) {
         album.id === id ? { ...album, name: trimmed } : album,
       ),
     }));
+    void saveBoardToServer();
   }, []);
 
   const deleteAlbum = useCallback((id: string) => {
+    mediaVersion.current += 1;
     updateState((current) => ({
       ...current,
       albums: current.albums.filter((album) => album.id !== id),
@@ -935,6 +978,7 @@ export function ScrapbookProvider({ children }: { children: ReactNode }) {
         memory.albumId === id ? { ...memory, albumId: undefined } : memory,
       ),
     }));
+    void saveBoardToServer();
   }, []);
 
   const persistNoteBoard = useCallback(
@@ -947,13 +991,16 @@ export function ScrapbookProvider({ children }: { children: ReactNode }) {
   );
 
   const setCover = useCallback(
-    (cover: MediaAsset) => persistNoteBoard((current) => ({ ...current, cover })),
+    (cover: MediaAsset) =>
+      persistNoteBoard((current) => ({ ...current, cover })),
     [persistNoteBoard],
   );
 
   const persistBoardNotes = useCallback(
     (updater: (notes: BoardNote[]) => BoardNote[]) =>
-      persistNoteBoard((current) => withBoardNotes(current, updater(current.notes))),
+      persistNoteBoard((current) =>
+        withBoardNotes(current, updater(current.notes)),
+      ),
     [persistNoteBoard],
   );
 
@@ -969,7 +1016,27 @@ export function ScrapbookProvider({ children }: { children: ReactNode }) {
   const updateBoardNote = useCallback(
     (id: string, draft: NewBoardNote) =>
       persistBoardNotes((notes) =>
-        notes.map((note) => (note.id === id ? { ...draft, id } : note)),
+        notes.map((note) => (note.id === id ? { ...note, ...draft, id } : note)),
+      ),
+    [persistBoardNotes],
+  );
+
+  const archiveBoardNote = useCallback(
+    (id: string) => {
+      const archivedAt = new Date().toISOString();
+      return persistBoardNotes((notes) =>
+        notes.map((note) => (note.id === id ? { ...note, archivedAt } : note)),
+      );
+    },
+    [persistBoardNotes],
+  );
+
+  const restoreBoardNote = useCallback(
+    (id: string) =>
+      persistBoardNotes((notes) =>
+        notes.map((note) =>
+          note.id === id ? { ...note, archivedAt: undefined } : note,
+        ),
       ),
     [persistBoardNotes],
   );
@@ -981,7 +1048,9 @@ export function ScrapbookProvider({ children }: { children: ReactNode }) {
   );
 
   const setSince = useCallback((since: string) => {
+    noteVersion.current += 1;
     updateState((current) => ({ ...current, since }));
+    scheduleBoardSave();
   }, []);
 
   const value = useMemo<ScrapbookContextValue>(
@@ -989,6 +1058,8 @@ export function ScrapbookProvider({ children }: { children: ReactNode }) {
       state,
       addMemory,
       updateMemory,
+      archiveMemory,
+      restoreMemory,
       deleteMemory,
       addAlbum,
       renameAlbum,
@@ -996,6 +1067,8 @@ export function ScrapbookProvider({ children }: { children: ReactNode }) {
       setCover,
       addBoardNote,
       updateBoardNote,
+      archiveBoardNote,
+      restoreBoardNote,
       deleteBoardNote,
       setSince,
     }),
@@ -1003,6 +1076,8 @@ export function ScrapbookProvider({ children }: { children: ReactNode }) {
       state,
       addMemory,
       updateMemory,
+      archiveMemory,
+      restoreMemory,
       deleteMemory,
       addAlbum,
       renameAlbum,
@@ -1010,6 +1085,8 @@ export function ScrapbookProvider({ children }: { children: ReactNode }) {
       setCover,
       addBoardNote,
       updateBoardNote,
+      archiveBoardNote,
+      restoreBoardNote,
       deleteBoardNote,
       setSince,
     ],

@@ -25,6 +25,7 @@ import {
 import { stickerOptions } from "@/components/scrapbook/stickers";
 import { useScrapbook } from "@/components/scrapbook/scrapbook-provider";
 import { hasDisplayableMedia, memoryAppearsInSection } from "@/lib/media";
+import { isActiveMemory } from "@/lib/scrapbook-normalize";
 import type {
   MediaAsset,
   Memory,
@@ -64,7 +65,10 @@ export function AddMemoryDialog({
     const seen = new Set<string>();
 
     return state.memories
-      .filter((item) => memoryAppearsInSection(item, "gallery"))
+      .filter(
+        (item) =>
+          isActiveMemory(item) && memoryAppearsInSection(item, "gallery"),
+      )
       .filter((item) => hasDisplayableMedia(item.media))
       .sort((a, b) => b.date.localeCompare(a.date))
       .filter((item) => {

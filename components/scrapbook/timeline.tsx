@@ -1,6 +1,6 @@
 "use client";
 
-import { ChevronLeft, ChevronRight, Pencil, Play, Plus, Trash2 } from "lucide-react";
+import { Archive, ChevronLeft, ChevronRight, Pencil, Play, Plus, Trash2 } from "lucide-react";
 import { useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { SectionHeading } from "@/components/scrapbook/section-heading";
@@ -8,6 +8,7 @@ import { Sticker } from "@/components/scrapbook/stickers";
 import { useScrapbook } from "@/components/scrapbook/scrapbook-provider";
 import { MediaImage, MediaPosterImage } from "@/components/scrapbook/media";
 import { formatMemoryDate, memoryAppearsInSection } from "@/lib/media";
+import { isActiveMemory } from "@/lib/scrapbook-normalize";
 import type { Memory } from "@/lib/scrapbook-types";
 import { cn } from "@/lib/utils";
 
@@ -15,18 +16,23 @@ export function Timeline({
   onAdd,
   onEdit,
   onView,
+  onArchive,
   onDelete,
 }: {
   onAdd: () => void;
   onEdit: (memory: Memory) => void;
   onView: (memory: Memory) => void;
+  onArchive: (memory: Memory) => void;
   onDelete: (memory: Memory) => void;
 }) {
   const { state } = useScrapbook();
   const scrollerRef = useRef<HTMLDivElement>(null);
 
   const memories = state.memories
-    .filter((memory) => memoryAppearsInSection(memory, "timeline"))
+    .filter(
+      (memory) =>
+        isActiveMemory(memory) && memoryAppearsInSection(memory, "timeline"),
+    )
     .sort((a, b) => a.date.localeCompare(b.date));
 
   const scrollBy = (direction: 1 | -1) => {
@@ -109,6 +115,14 @@ export function Timeline({
                     className="flex size-8 items-center justify-center rounded-full bg-white/85 text-ink shadow-sm backdrop-blur transition-colors hover:text-rose-deep sm:size-7"
                   >
                     <Pencil className="size-3" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => onArchive(memory)}
+                    aria-label={`Archive ${memory.title}`}
+                    className="flex size-8 items-center justify-center rounded-full bg-white/85 text-ink shadow-sm backdrop-blur transition-colors hover:text-rose-deep sm:size-7"
+                  >
+                    <Archive className="size-3" />
                   </button>
                   <button
                     type="button"

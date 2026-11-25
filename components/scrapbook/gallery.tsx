@@ -1,6 +1,6 @@
 "use client";
 
-import { FolderPlus, Pencil, Play, Plus, Trash2 } from "lucide-react";
+import { Archive, FolderPlus, Pencil, Play, Plus, Trash2 } from "lucide-react";
 import { useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { ManageAlbumsDialog } from "@/components/scrapbook/manage-albums-dialog";
@@ -10,6 +10,7 @@ import { WashiTape } from "@/components/scrapbook/decorative";
 import { useScrapbook } from "@/components/scrapbook/scrapbook-provider";
 import { MediaImage, MediaPosterImage } from "@/components/scrapbook/media";
 import { formatMemoryDate, memoryAppearsInSection } from "@/lib/media";
+import { isActiveMemory, isArchivedMemory } from "@/lib/scrapbook-normalize";
 import type { Memory } from "@/lib/scrapbook-types";
 import { cn } from "@/lib/utils";
 
@@ -42,12 +43,16 @@ export function Gallery({
   onAdd,
   onEdit,
   onView,
+  onArchive,
   onDelete,
+  onOpenArchive,
 }: {
   onAdd: () => void;
   onEdit: (memory: Memory) => void;
   onView: (memory: Memory) => void;
+  onArchive: (memory: Memory) => void;
   onDelete: (memory: Memory) => void;
+  onOpenArchive?: () => void;
 }) {
   const { state } = useScrapbook();
   const [mediaFilter, setMediaFilter] = useState<MediaFilter>("all");
@@ -67,9 +72,15 @@ export function Gallery({
 
   const memories = useMemo(
     () =>
-      state.memories.filter((memory) =>
-        memoryAppearsInSection(memory, "gallery"),
+      state.memories.filter(
+        (memory) =>
+          isActiveMemory(memory) && memoryAppearsInSection(memory, "gallery"),
       ),
+    [state.memories],
+  );
+
+  const archivedMediaCount = useMemo(
+    () => state.memories.filter(isArchivedMemory).length,
     [state.memories],
   );
 
@@ -118,7 +129,19 @@ export function Gallery({
       <SectionHeading
         title="Gallery"
         action={
-          <div className="flex items-center gap-1.5">
+          <div className="flex flex-wrap items-center gap-1.5">
+            {onOpenArchive ? (
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                onClick={onOpenArchive}
+                className="h-8 gap-1.5 rounded-full border-rose/30 px-3 text-xs text-ink-soft hover:text-rose-deep"
+              >
+                <Archive className="size-3.5" />
+                Archive{archivedMediaCount > 0 ? ` (${archivedMediaCount})` : ""}
+              </Button>
+            ) : null}
             <Button
               type="button"
               size="sm"
@@ -278,6 +301,14 @@ export function Gallery({
                 className="flex size-8 items-center justify-center rounded-full bg-white/85 text-ink shadow-sm backdrop-blur transition-colors hover:text-rose-deep sm:size-7"
               >
                 <Pencil className="size-3" />
+              </button>
+              <button
+                type="button"
+                onClick={() => onArchive(memory)}
+                aria-label={`Archive ${memory.title}`}
+                className="flex size-8 items-center justify-center rounded-full bg-white/85 text-ink shadow-sm backdrop-blur transition-colors hover:text-rose-deep sm:size-7"
+              >
+                <Archive className="size-3" />
               </button>
               <button
                 type="button"

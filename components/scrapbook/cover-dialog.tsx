@@ -17,6 +17,7 @@ import {
 } from "@/components/scrapbook/media";
 import { useScrapbook } from "@/components/scrapbook/scrapbook-provider";
 import { hasDisplayableMedia, isCloudinaryAsset } from "@/lib/media";
+import { isActiveMemory } from "@/lib/scrapbook-normalize";
 import type { MediaAsset } from "@/lib/scrapbook-types";
 import { cn } from "@/lib/utils";
 
@@ -48,6 +49,7 @@ export function CoverDialog({
     const seen = new Set<string>();
 
     return state.memories
+      .filter(isActiveMemory)
       .map((memory) => ({ date: memory.date, media: memory.media }))
       .filter(
         ({ media }) => isCloudinaryAsset(media) && hasDisplayableMedia(media),

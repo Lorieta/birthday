@@ -68,3 +68,30 @@ export async function listCloudinaryMedia(): Promise<CloudinaryMediaItem[]> {
       typeof resource.created_at === "string" ? resource.created_at : undefined,
   }));
 }
+
+export async function deleteCloudinaryMedia(
+  publicId: string,
+  resourceType: "image" | "video" = "image",
+): Promise<{ ok: boolean; result?: string }> {
+  const cfg = getCloudinaryConfig();
+  if (!cfg) {
+    throw new Error("Cloudinary is not configured.");
+  }
+
+  cloudinary.config({
+    cloud_name: cfg.cloudName,
+    api_key: cfg.apiKey,
+    api_secret: cfg.apiSecret,
+  });
+
+  const response = (await cloudinary.uploader.destroy(publicId, {
+    resource_type: resourceType,
+    invalidate: true,
+  })) as { result?: string };
+
+  const result = response?.result;
+  return {
+    ok: result === "ok" || result === "not found",
+    result,
+  };
+}

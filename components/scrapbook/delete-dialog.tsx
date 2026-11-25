@@ -10,18 +10,21 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { Button } from "@/components/ui/button";
 import type { Memory } from "@/lib/scrapbook-types";
 
 export function DeleteMemoryDialog({
   open,
   onOpenChange,
   memory,
+  onArchive,
   onConfirm,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   memory: Memory | null;
-  onConfirm: (memory: Memory) => void;
+  onArchive: (memory: Memory) => void | Promise<void>;
+  onConfirm: (memory: Memory) => void | Promise<void>;
 }) {
   if (!memory) return null;
 
@@ -29,22 +32,36 @@ export function DeleteMemoryDialog({
     <AlertDialog open={open} onOpenChange={onOpenChange}>
       <AlertDialogContent>
         <AlertDialogHeader>
-          <AlertDialogTitle>Remove this memory?</AlertDialogTitle>
+          <AlertDialogTitle>Archive or remove this memory?</AlertDialogTitle>
           <AlertDialogDescription>
-            &ldquo;{memory.title}&rdquo; will disappear from this browser
-            scrapbook. The media stays safe in Cloudinary.
+            Archiving hides &ldquo;{memory.title}&rdquo; from your scrapbook so
+            you can restore it later. Deleting permanently removes it everywhere
+            {memory.media.source === "cloudinary"
+              ? " and from Cloudinary"
+              : ""}
+            .
           </AlertDialogDescription>
         </AlertDialogHeader>
-        <AlertDialogFooter>
+        <AlertDialogFooter className="flex-col gap-2 sm:flex-row">
           <AlertDialogCancel>Keep it</AlertDialogCancel>
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => {
+              void onArchive(memory);
+              onOpenChange(false);
+            }}
+          >
+            Archive instead
+          </Button>
           <AlertDialogAction
             onClick={() => {
-              onConfirm(memory);
+              void onConfirm(memory);
               onOpenChange(false);
             }}
             className="bg-destructive text-white hover:bg-destructive/90"
           >
-            Remove
+            Delete permanently
           </AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>

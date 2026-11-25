@@ -12,6 +12,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { useScrapbook } from "@/components/scrapbook/scrapbook-provider";
+import { isActiveMemory } from "@/lib/scrapbook-normalize";
 
 export function ManageAlbumsDialog({
   open,
@@ -33,7 +34,9 @@ export function ManageAlbumsDialog({
   const counts = useMemo(() => {
     const map = new Map<string, number>();
     for (const m of state.memories) {
-      if (m.section !== "gallery" || !m.albumId) continue;
+      if (!isActiveMemory(m) || m.section !== "gallery" || !m.albumId) {
+        continue;
+      }
       map.set(m.albumId, (map.get(m.albumId) ?? 0) + 1);
     }
     return map;

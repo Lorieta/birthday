@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Pencil, Plus, Trash2 } from "lucide-react";
+import { Archive, Pencil, Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import {
   AlertDialog,
@@ -18,6 +18,7 @@ import { HeartDoodle, WashiTape } from "@/components/scrapbook/decorative";
 import { NoteDialog } from "@/components/scrapbook/note-dialog";
 import { Sticker } from "@/components/scrapbook/stickers";
 import { useScrapbook } from "@/components/scrapbook/scrapbook-provider";
+import { isActiveNote, isArchivedNote } from "@/lib/scrapbook-normalize";
 import { cn } from "@/lib/utils";
 import type { BoardNote, NoteColor } from "@/lib/scrapbook-types";
 
@@ -51,12 +52,24 @@ const noteStyles: Record<
   },
 };
 
-export function NoteBoard() {
-  const { state, addBoardNote, updateBoardNote, deleteBoardNote } =
-    useScrapbook();
+export function NoteBoard({
+  onOpenArchive,
+}: {
+  onOpenArchive?: () => void;
+}) {
+  const {
+    state,
+    addBoardNote,
+    updateBoardNote,
+    archiveBoardNote,
+    deleteBoardNote,
+  } = useScrapbook();
   const [editorOpen, setEditorOpen] = useState(false);
   const [editingNote, setEditingNote] = useState<BoardNote | null>(null);
   const [pendingDelete, setPendingDelete] = useState<BoardNote | null>(null);
+
+  const activeNotes = state.notes.filter(isActiveNote);
+  const archivedCount = state.notes.filter(isArchivedNote).length;
 
   const openAdd = () => {
     setEditingNote(null);
@@ -76,11 +89,21 @@ export function NoteBoard() {
     if (saved) {
       toast.success(editingNote ? "Note updated" : "A new note, saved");
     } else {
-      toast.error("Note saved on this browser only");
+      toast.error("Note saved on this browser only — could not sync to DB");
     }
 
     setEditorOpen(false);
     setEditingNote(null);
+  };
+
+  const handleArchive = async (note: BoardNote) => {
+    const saved = await archiveBoardNote(note.id);
+    if (saved) {
+      toast.success("Note archived");
+    } else {
+      toast.error("Note archived on this browser only — could not sync to DB");
+    }
+    setPendingDelete(null);
   };
 
   const handleDelete = async () => {
@@ -90,7 +113,7 @@ export function NoteBoard() {
     if (saved) {
       toast.success("Note removed");
     } else {
-      toast.error("Note removed on this browser only");
+      toast.error("Note removed on this browser only — could not sync to DB");
     }
 
     setPendingDelete(null);
@@ -98,7 +121,7 @@ export function NoteBoard() {
 
   return (
     <div>
-      <div className="mb-4 flex items-end justify-between gap-3">
+      <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
         <div>
           <h3 className="font-hand text-[2rem] leading-none font-semibold text-[#6b453c]">
             Little Notes
@@ -108,23 +131,37 @@ export function NoteBoard() {
             />
           </h3>
           <p className="mt-1 text-xs text-ink-soft">
-            {state.notes.length} {state.notes.length === 1 ? "note" : "notes"}{" "}
+            {activeNotes.length} {activeNotes.length === 1 ? "note" : "notes"}{" "}
             pinned to the board
           </p>
         </div>
-        <Button
-          type="button"
-          size="sm"
-          onClick={openAdd}
-          className="shrink-0 rounded-full bg-primary px-4 text-primary-foreground hover:bg-rose-deep"
-        >
-          <Plus className="size-3.5" />
-          Add note
-        </Button>
+        <div className="flex items-center gap-1.5">
+          {onOpenArchive ? (
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              onClick={onOpenArchive}
+              className="shrink-0 rounded-full border-rose/30 px-3 text-xs text-ink-soft hover:text-rose-deep"
+            >
+              <Archive className="size-3.5" />
+              Archive{archivedCount > 0 ? ` (${archivedCount})` : ""}
+            </Button>
+          ) : null}
+          <Button
+            type="button"
+            size="sm"
+            onClick={openAdd}
+            className="shrink-0 rounded-full bg-primary px-4 text-primary-foreground hover:bg-rose-deep"
+          >
+            <Plus className="size-3.5" />
+            Add note
+          </Button>
+        </div>
       </div>
 
       <div className="grid gap-3 sm:grid-cols-2 sm:gap-4 xl:grid-cols-3">
-        {state.notes.map((note, index) => {
+        {activeNotes.map((note, index) => {
           const style = noteStyles[note.color];
 
           return (
@@ -155,6 +192,16 @@ export function NoteBoard() {
                     className="rounded-full bg-white/45 hover:bg-white/75"
                   >
                     <Pencil className="size-3.5" />
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon-sm"
+                    onClick={() => void handleArchive(note)}
+                    aria-label={`Archive ${note.title}`}
+                    className="rounded-full bg-white/45 hover:bg-white/75"
+                  >
+                    <Archive className="size-3.5" />
                   </Button>
                   <Button
                     type="button"
@@ -221,19 +268,28 @@ export function NoteBoard() {
       >
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Remove this note?</AlertDialogTitle>
+            <AlertDialogTitle>Archive or remove this note?</AlertDialogTitle>
             <AlertDialogDescription>
-              &ldquo;{pendingDelete?.title}&rdquo; will be removed from the
-              board everywhere the scrapbook is opened.
+              Archiving hides &ldquo;{pendingDelete?.title}&rdquo; so you can
+              restore it later. Deleting permanently removes it from the board.
             </AlertDialogDescription>
           </AlertDialogHeader>
-          <AlertDialogFooter>
+          <AlertDialogFooter className="flex-col gap-2 sm:flex-row">
             <AlertDialogCancel>Keep it</AlertDialogCancel>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => {
+                if (pendingDelete) void handleArchive(pendingDelete);
+              }}
+            >
+              Archive instead
+            </Button>
             <AlertDialogAction
               onClick={() => void handleDelete()}
               className="bg-destructive text-white hover:bg-destructive/90"
             >
-              Remove
+              Delete permanently
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

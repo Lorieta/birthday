@@ -47,6 +47,7 @@ export interface Memory {
   section: MemorySection;
   sections?: MemorySection[];
   albumId?: string;
+  archivedAt?: string;
 }
 
 export interface Album {
@@ -62,6 +63,7 @@ export interface BoardNote {
   text: string;
   signature: string;
   color: NoteColor;
+  archivedAt?: string;
 }
 
 export interface ScrapbookState {
