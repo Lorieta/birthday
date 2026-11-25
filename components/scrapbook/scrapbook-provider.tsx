@@ -10,7 +10,7 @@ import {
   useSyncExternalStore,
   type ReactNode,
 } from "react";
-import { titleFromCloudinaryPublicId } from "@/lib/cloudinary-asset";
+import { cleanCloudinaryName } from "@/lib/cloudinary-asset";
 import { normalizeMediaAsset } from "@/lib/media";
 import {
   GALLERY_SEED_ALBUMS,
@@ -57,6 +57,7 @@ const OLD_SEED_IDS = new Set([
 const OLD_NOTE = "Thank you for being here...\nfor the laughs, the dates,\nthe random chats, and\neverything in between.\n\nI hope we keep making\nmore memories together.\n\nI love you.";
 const OLD_PHOTO_ALT = "A scrapbook photo of the couple";
 const OLD_VIDEO_ALT = "A scrapbook video of the couple";
+const FALLBACK_MEMORY_TITLE = "A little memory";
 
 const OLD_TIMELINE_COPY: Record<string, { title: string; caption: string }> = {
   "timeline-highlight-just-us": {
@@ -257,7 +258,10 @@ function mergeCloudinaryMedia(
     memoryIds.add(id);
     additions.push({
       id,
-      title: item.media.alt ?? titleFromCloudinaryPublicId(publicId),
+      title:
+        cleanCloudinaryName(item.media.alt) ??
+        cleanCloudinaryName(publicId) ??
+        FALLBACK_MEMORY_TITLE,
       date: dateFromCreatedAt(item.createdAt),
       caption: "",
       media: item.media,
@@ -359,6 +363,13 @@ function migrateCopyMemory(memory: Memory): Memory {
     caption: fresh.caption,
     media: { ...memory.media, alt: fresh.media.alt },
   };
+}
+
+function migrateOpaqueMemoryTitle(memory: Memory): Memory {
+  if (memory.media.source !== "cloudinary") return memory;
+  if (cleanCloudinaryName(memory.title) !== undefined) return memory;
+
+  return { ...memory, title: FALLBACK_MEMORY_TITLE };
 }
 
 function normalizeAlbums(albums: Album[] | undefined): Album[] {
@@ -464,7 +475,9 @@ function migrateState(state: ScrapbookState): ScrapbookState {
     memories = [...remaining, ...freshSeed];
   }
 
-  const migratedMemories = memories.map(migrateCopyMemory);
+  const migratedMemories = memories
+    .map(migrateCopyMemory)
+    .map(migrateOpaqueMemoryTitle);
   const memoriesChanged =
     removedImportedMemories ||
     memories !== availableMemories ||

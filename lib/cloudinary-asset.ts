@@ -11,9 +11,25 @@ export interface CloudinaryAssetInfo {
   created_at?: string;
 }
 
+const OPAQUE_NAME = /^(?=.*[a-z])(?=.*\d)[a-z0-9]{16,}$/i;
+
+export function isOpaqueCloudinaryName(value: string | undefined) {
+  return Boolean(value && OPAQUE_NAME.test(value.trim()));
+}
+
+export function cleanCloudinaryName(value: string | undefined) {
+  const trimmed = value?.trim();
+  if (!trimmed) return undefined;
+
+  const withoutExtension = trimmed.replace(/\.[a-z0-9]+$/i, "");
+  if (isOpaqueCloudinaryName(withoutExtension)) return undefined;
+
+  return withoutExtension.replace(/[-_]+/g, " ").trim() || undefined;
+}
+
 export function titleFromCloudinaryPublicId(publicId: string) {
   const name = publicId.split("/").pop() ?? publicId;
-  return name.replace(/[-_]+/g, " ").trim() || "Cloudinary media";
+  return cleanCloudinaryName(name) ?? "Cloudinary media";
 }
 
 export function cloudinaryVideoPoster(cloudName: string, publicId: string) {
@@ -43,7 +59,7 @@ export function toMediaAsset(
         ? cloudinaryVideoPoster(cloudName, info.public_id)
         : undefined,
     alt:
-      info.original_filename ||
-      titleFromCloudinaryPublicId(info.public_id),
+      cleanCloudinaryName(info.original_filename) ??
+      cleanCloudinaryName(info.public_id),
   };
 }

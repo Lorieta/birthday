@@ -6,6 +6,7 @@ import {
   readNoteBoard,
   saveNoteBoard,
 } from "@/lib/note-store";
+import { deleteNoteBoard } from "@/lib/note-db";
 
 const NO_STORE = { "Cache-Control": "private, no-store" };
 
@@ -76,6 +77,18 @@ export async function POST(request: Request) {
   } catch {
     return Response.json(
       { error: "Could not save notes." },
+      { status: 503, headers: NO_STORE },
+    );
+  }
+}
+
+export async function DELETE() {
+  try {
+    await deleteNoteBoard();
+    return Response.json({ ok: true }, { headers: NO_STORE });
+  } catch {
+    return Response.json(
+      { error: "Could not delete notes." },
       { status: 503, headers: NO_STORE },
     );
   }

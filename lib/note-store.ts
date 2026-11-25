@@ -1,5 +1,4 @@
-import { v2 as cloudinary } from "cloudinary";
-import { getCloudinaryConfig } from "@/lib/cloudinary-server";
+import { getNoteBoardText, saveNoteBoardText } from "@/lib/note-db";
 import { normalizeMediaAsset } from "@/lib/media";
 import type {
   BoardNote,
@@ -10,7 +9,6 @@ import type {
   StickerName,
 } from "@/lib/scrapbook-types";
 
-const NOTE_PUBLIC_ID = "birthday-scrapbook/note.json";
 const NOTE_VERSION = 2;
 const NOTE_COLORS: NoteColor[] = ["blush", "sage", "butter", "lavender"];
 const MEMORY_LIMITS = { count: 100 } as const;
@@ -46,19 +44,6 @@ export interface StoredNoteBoard {
   notes: BoardNote[];
   cover?: MediaAsset;
   memories?: Memory[];
-}
-
-function configureCloudinary() {
-  const cfg = getCloudinaryConfig();
-  if (!cfg) return null;
-
-  cloudinary.config({
-    cloud_name: cfg.cloudName,
-    api_key: cfg.apiKey,
-    api_secret: cfg.apiSecret,
-  });
-
-  return cfg;
 }
 
 function normalizeBoardNote(value: unknown): BoardNote | null {
@@ -206,22 +191,10 @@ export function parseStoredBoard(value: string): StoredNoteBoard | null {
 }
 
 export async function readNoteBoard(): Promise<StoredNoteBoard | null> {
-  if (!configureCloudinary()) return null;
-
-  const url = cloudinary.utils.private_download_url(
-    NOTE_PUBLIC_ID,
-    "json",
-    {
-      resource_type: "raw",
-      type: "private",
-      expires_at: Math.floor(Date.now() / 1000) + 60,
-    },
-  );
-
   try {
-    const response = await fetch(url, { cache: "no-store" });
-    if (!response.ok) return null;
-    return parseStoredBoard(await response.text());
+    const text = await getNoteBoardText();
+    if (!text) return null;
+    return parseStoredBoard(text);
   } catch {
     return null;
   }
@@ -230,18 +203,6 @@ export async function readNoteBoard(): Promise<StoredNoteBoard | null> {
 export async function saveNoteBoard(
   board: Omit<StoredNoteBoard, "version">,
 ): Promise<void> {
-  if (!configureCloudinary()) {
-    throw new Error("Cloudinary is not configured");
-  }
-
   const payload: StoredNoteBoard = { version: NOTE_VERSION, ...board };
-  const data = Buffer.from(JSON.stringify(payload), "utf8").toString("base64");
-
-  await cloudinary.uploader.upload(`data:application/json;base64,${data}`, {
-    resource_type: "raw",
-    type: "private",
-    public_id: NOTE_PUBLIC_ID,
-    overwrite: true,
-    invalidate: true,
-  });
+  await saveNoteBoardText(JSON.stringify(payload));
 }
