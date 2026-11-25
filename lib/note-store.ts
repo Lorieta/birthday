@@ -1,4 +1,4 @@
-import { getNoteBoardText, saveNoteBoardText } from "@/lib/note-db";
+import { readNoteBoardRows, saveNoteBoardRows } from "@/lib/note-db";
 import { normalizeMediaAsset } from "@/lib/media";
 import type {
   BoardNote,
@@ -151,50 +151,22 @@ export function normalizeMemories(value: unknown): Memory[] | null {
   return memories;
 }
 
-export function parseStoredBoard(value: string): StoredNoteBoard | null {
+export async function readNoteBoard(): Promise<StoredNoteBoard | null> {
   try {
-    const parsed: unknown = JSON.parse(value);
-    if (!parsed || typeof parsed !== "object") return null;
+    const stored = await readNoteBoardRows();
+    if (!stored) return null;
 
-    const board = parsed as Partial<StoredNoteBoard>;
-    if (Array.isArray(board.notes)) {
-      const notes = normalizeBoardNotes(board.notes);
-      if (!notes) return null;
-
-      return {
-        version: NOTE_VERSION,
-        notes,
-        cover: normalizeStoredCover(board.cover),
-        memories: normalizeMemories(board.memories) ?? undefined,
-      };
-    }
-
-    const legacy = parsed as { note?: unknown; signature?: unknown };
-    if (typeof legacy.note !== "string") return null;
+    const notes = normalizeBoardNotes(stored.notes);
+    if (!notes) return null;
 
     return {
       version: NOTE_VERSION,
-      notes: [
-        {
-          id: "note-legacy",
-          title: "A Little Note",
-          text: legacy.note,
-          signature:
-            typeof legacy.signature === "string" ? legacy.signature : "",
-          color: "blush",
-        },
-      ],
+      notes,
+      cover: normalizeStoredCover(stored.cover),
+      memories: stored.memories.length
+        ? normalizeMemories(stored.memories) ?? undefined
+        : undefined,
     };
-  } catch {
-    return null;
-  }
-}
-
-export async function readNoteBoard(): Promise<StoredNoteBoard | null> {
-  try {
-    const text = await getNoteBoardText();
-    if (!text) return null;
-    return parseStoredBoard(text);
   } catch {
     return null;
   }
@@ -203,6 +175,5 @@ export async function readNoteBoard(): Promise<StoredNoteBoard | null> {
 export async function saveNoteBoard(
   board: Omit<StoredNoteBoard, "version">,
 ): Promise<void> {
-  const payload: StoredNoteBoard = { version: NOTE_VERSION, ...board };
-  await saveNoteBoardText(JSON.stringify(payload));
+  await saveNoteBoardRows(board);
 }

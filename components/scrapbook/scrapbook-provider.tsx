@@ -612,63 +612,73 @@ export function ScrapbookProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     const controller = new AbortController();
-    const versionAtStart = noteVersion.current;
 
-    fetch("/api/note", { cache: "no-store", signal: controller.signal })
-      .then((response) => (response.ok ? response.json() : null))
-      .then((data: unknown) => {
-        if (versionAtStart !== noteVersion.current) return;
-        if (!data || typeof data !== "object") return;
+    // Load persisted (user-authored) data first so it takes priority over
+    // values derived from Cloudinary metadata.
+    const load = async () => {
+      const noteVersionAtStart = noteVersion.current;
 
-        const stored = data as {
-          notes?: unknown;
-          cover?: unknown;
-          memories?: unknown;
-        };
-        const notes = normalizeBoardNotes(stored.notes);
-        const cover = normalizeMediaAsset(stored.cover);
-        const serverMemories: Memory[] = Array.isArray(stored.memories)
-          ? (stored.memories as Memory[])
-          : [];
-        if (!notes && !cover?.src && !serverMemories.length) return;
-
-        updateState((current) => {
-          let next = current;
-          if (notes) next = withBoardNotes(next, notes);
-          if (cover?.src) next = { ...next, cover };
-          if (serverMemories.length) {
-            const localIds = new Set(
-              current.memories.map((memory) => memory.id),
-            );
-            next = {
-              ...next,
-              memories: [
-                ...serverMemories.filter(
-                  (memory) => !localIds.has(memory.id),
-                ),
-                ...current.memories,
-              ],
-            };
-          }
-          return next;
+      try {
+        const response = await fetch("/api/note", {
+          cache: "no-store",
+          signal: controller.signal,
         });
-      })
-      .catch(() => {});
+        const data: unknown = response.ok ? await response.json() : null;
 
-    return () => controller.abort();
-  }, []);
+        if (
+          noteVersionAtStart === noteVersion.current &&
+          data &&
+          typeof data === "object"
+        ) {
+          const stored = data as {
+            notes?: unknown;
+            cover?: unknown;
+            memories?: unknown;
+          };
+          const notes = normalizeBoardNotes(stored.notes);
+          const cover = normalizeMediaAsset(stored.cover);
+          const serverMemories: Memory[] = Array.isArray(stored.memories)
+            ? (stored.memories as Memory[])
+            : [];
 
-  useEffect(() => {
-    const controller = new AbortController();
-    const versionAtStart = mediaVersion.current;
+          if (notes || cover?.src || serverMemories.length) {
+            updateState((current) => {
+              let next = current;
+              if (notes) next = withBoardNotes(next, notes);
+              if (cover?.src) next = { ...next, cover };
+              if (serverMemories.length) {
+                const serverIds = new Set(
+                  serverMemories.map((memory) => memory.id),
+                );
+                next = {
+                  ...next,
+                  memories: [
+                    ...serverMemories,
+                    ...current.memories.filter(
+                      (memory) => !serverIds.has(memory.id),
+                    ),
+                  ],
+                };
+              }
+              return next;
+            });
+          }
+        }
+      } catch {
+        // Aborted or offline; keep the current local state.
+      }
 
-    fetch("/api/cloudinary-media", {
-      cache: "no-store",
-      signal: controller.signal,
-    })
-      .then((response) => (response.ok ? response.json() : null))
-      .then((data: unknown) => {
-        if (versionAtStart !== mediaVersion.current) return;
+      if (controller.signal.aborted) return;
+
+      const mediaVersionAtStart = mediaVersion.current;
+
+      try {
+        const response = await fetch("/api/cloudinary-media", {
+          cache: "no-store",
+          signal: controller.signal,
+        });
+        const data: unknown = response.ok ? await response.json() : null;
+        if (mediaVersionAtStart !== mediaVersion.current) return;
         if (!data || typeof data !== "object") return;
 
         const rawMedia = (data as { media?: unknown }).media;
@@ -676,14 +686,16 @@ export function ScrapbookProvider({ children }: { children: ReactNode }) {
 
         const items = rawMedia
           .map(normalizeSyncedCloudinaryMedia)
-          .filter(
-            (item): item is SyncedCloudinaryMedia => Boolean(item),
-          );
+          .filter((item): item is SyncedCloudinaryMedia => Boolean(item));
         if (!items.length) return;
 
         updateState((current) => mergeCloudinaryMedia(current, items));
-      })
-      .catch(() => {});
+      } catch {
+        // Aborted or offline; keep the current local state.
+      }
+    };
+
+    void load();
 
     return () => controller.abort();
   }, []);

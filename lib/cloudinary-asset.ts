@@ -21,15 +21,15 @@ export function cleanCloudinaryName(value: string | undefined) {
   const trimmed = value?.trim();
   if (!trimmed) return undefined;
 
-  const withoutExtension = trimmed.replace(/\.[a-z0-9]+$/i, "");
+  const name = trimmed.split("/").pop() ?? trimmed;
+  const withoutExtension = name.replace(/\.[a-z0-9]+$/i, "");
   if (isOpaqueCloudinaryName(withoutExtension)) return undefined;
 
   return withoutExtension.replace(/[-_]+/g, " ").trim() || undefined;
 }
 
 export function titleFromCloudinaryPublicId(publicId: string) {
-  const name = publicId.split("/").pop() ?? publicId;
-  return cleanCloudinaryName(name) ?? "Cloudinary media";
+  return cleanCloudinaryName(publicId) ?? "Cloudinary media";
 }
 
 export function cloudinaryVideoPoster(cloudName: string, publicId: string) {
